@@ -425,7 +425,5 @@ if __name__ == '__main__':
     isobaths=[200,2000]#None
     averaged=True #if True it calculates the climatology, if False it will be one file per timestep
     output_dir=r"C:\Users\Felicio.Cassalho\Work\Modeling\AK_Project\STOFS_postprocessing\figures\2024_08_sst/"
-    #output_dir=r"/work2/noaa/nosofs/felicioc/work/stofs_pac/figures/sst_2024_08/"
     timestep=6 #every X hours
-
     main(var,start_date,end_date,averaged,output_dir,timestep,isobaths)

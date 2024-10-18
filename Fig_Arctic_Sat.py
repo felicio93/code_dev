@@ -288,4 +288,5 @@ if __name__ == '__main__':
 
     output_dir=r"C:\Users\Felicio.Cassalho\Work\Modeling\AK_Project\STOFS_postprocessing\figures\arctic_sat_sst/"
     path_sat=r"C:\Users\Felicio.Cassalho\Work\Modeling\AK_Project\STOFS_postprocessing\LEO/"
+    
     main(var,start_date,end_date,output_dir,path_sat,isobaths)
