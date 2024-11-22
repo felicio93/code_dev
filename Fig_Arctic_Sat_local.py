@@ -35,18 +35,14 @@ def dates_range(start_date, end_date):
 
     return dates
 
-def concat_arctic(start_date, end_date, data_dir):
+
+
+def open_schism(date, n, data_dir):
     """
-    This function creates climatology (average) files for
-    STOFS Pacific data based on a start and end dates, e.g.:
-    clim_stofs_pac("20240801", "20240803")
     """
-    dates = dates_range(start_date, end_date)
-    ds_all=[]
-    for n, date in enumerate(dates):
-        n=n+1
-        try:
-            ds1 = xr.open_dataset(
+    n=n+1
+    try:
+        ds = xr.open_dataset(
                 f"{data_dir}temperature_{n}.nc",
                 chunks={},
                 engine='h5netcdf',
@@ -69,13 +65,12 @@ def concat_arctic(start_date, end_date, data_dir):
                                 'dryFlagNode',
                                 ]
             )
-            ds_all.append(ds1)
-            print("Model data found for: ", date)
-        except:
-            print("No model data found for: ", date)
-    ds = xr.concat(ds_all,dim="time",data_vars="all")
-    return ds
+        print("Model data found for: ", date)
+    except:
+        print("No model data found for: ", date)
+        pass
 
+    return ds
 
 def split_quads(face_nodes: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
     """
@@ -222,33 +217,37 @@ def plot_arctic(
 
 def main(var,start_date,end_date,output_dir,path_sat,isobaths,data_dir):
 
-    ds = concat_arctic(start_date,end_date,data_dir)
+    # ds = concat_arctic(start_date,end_date,data_dir)
     if var == 'temperature':
         long_name="Sea Surface Temperature (degC)"
 
-    times=[str(tt).split('.')[0] for tt in np.array(ds['time'][:])]
+    dates = dates_range(start_date, end_date)    
+    times = [dd.strftime("%m/%d/%y") for dd in dates]
     x,y,connect_tri,depth = fixed_connectivity_tri(data_dir)
     lonmin,lonmax=x.min(),x.max()
     latmin,latmax=y.min(),y.max()
 
     triangulation = tri.Triangulation(x=x, y=y, triangles=connect_tri)
 
-    sat_date = [str(i).split("T")[0].replace('-', '') for i in np.array(ds['time'])]
-
+    # sat_date = [str(i).split("T")[0].replace('-', '') for i in np.array(ds['time'])]
+    sat_date = [dd.strftime("%Y%m%d") for dd in dates]
     ds_sat = concat_LEO(sat_date, path_sat)
-    sat_time=[str(i).split(".")[0] for i in np.array(ds_sat['time'])]
     x_sat=np.array(ds_sat['lon'][0])
     y_sat=np.array(ds_sat['lat'][0])
     z_sat=np.array(ds_sat['sst'])
     x_sat, y_sat = np.meshgrid(x_sat, y_sat)
 
-    ds = np.array(ds.variables[var][:,:,-1])
+    # ds = np.array(ds.variables[var][:,:,-1])
 
-    for n in range(0, len(ds)):
-        print("creating plot ",n," of ", len(ds))
-        z = ds[n]
+
+    for n, date in enumerate(dates):
+        ds = open_schism(date, n, data_dir)
+        ds = np.array(ds.variables[var][0,:,-1])
+        print("creating plot ",n," of ", len(dates))
+
+        z = ds
         time_str=times[n]
-        sat_time_n=sat_time[n]
+        sat_time_n=sat_date[n]
         z_sat_n = z_sat[n]
         if var == 'temperature':
             plot_arctic(triangulation,
@@ -272,11 +271,12 @@ def main(var,start_date,end_date,output_dir,path_sat,isobaths,data_dir):
                         interv=.5)
 
     files = os.listdir(output_dir)
+    files = sorted(files)
     images = []
     for file in files:
         images.append(imageio.imread(output_dir+file))
         # os.remove(output_dir/file)
-    imageio.mimsave(output_dir+f'{start_date}_{end_date}_{var}.gif',images, fps = 1/(len(images)/60))
+    imageio.mimsave(output_dir+f'{start_date}_{end_date}_{var}.gif',images, fps = 2)
 
 if __name__ == '__main__':
 
