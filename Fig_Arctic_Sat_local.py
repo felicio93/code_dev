@@ -283,11 +283,11 @@ if __name__ == '__main__':
     # Enter your inputs here:
     var = 'temperature'
     start_date='20190702'
-    end_date='20191031'
+    end_date='20191030'
     isobaths=[200,2000]#None
 
-    data_dir=r"/work2/noaa/nosofs/felicioc/BeringSea/O04/"
-    output_dir=r"/work2/noaa/nosofs/felicioc/BeringSea/P04/sst_vs_satl3/"
+    data_dir=r"/work2/noaa/nosofs/felicioc/BeringSea/O04a_hychot/"
+    output_dir=r"/work2/noaa/nosofs/felicioc/BeringSea/P04/sst_vs_satl3_04a_hychot/"
     path_sat=r"/work2/noaa/nosofs/felicioc/BeringSea/script_LEOL3/subset/"
     
     main(var,start_date,end_date,output_dir,path_sat,isobaths,data_dir)
