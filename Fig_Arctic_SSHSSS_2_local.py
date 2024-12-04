@@ -287,6 +287,7 @@ def plot_arctic(
 
     fig.tight_layout()
     fig.savefig(output_dir+'{:04d}.jpeg'.format(n))
+    plt.close()
     plt.clf()
 
 def main(start_date,end_date,output_dir,isobaths,data_dir_h,data_dir_r):
