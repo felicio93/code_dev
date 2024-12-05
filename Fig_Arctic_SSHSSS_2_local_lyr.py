@@ -189,7 +189,8 @@ def plot_arctic(
                lonmin=None,
                lonmax=None,
                interv_t=None,
-               interv_s=None):
+               interv_s=None,
+               lr=None):
     
     cmap = plb.cm.jet
     cmaplist = [cmap(i) for i in range(cmap.N)]
@@ -213,7 +214,7 @@ def plot_arctic(
                       ticks=np.linspace(vmin_t,vmax_t,len([i for i in np.arange(vmin_t,vmax_t,1)])+1))
     cb.set_label(long_name_t)
 
-    ax.set_title(time_str+" HYCOM Hotstart")
+    ax.set_title(f"{time_str} - HYCOM Hotstart - Layer: {lr}")
     ax.set_xlim(lonmin,lonmax)
     ax.set_ylim(latmin,latmax)
     ax.set_xlim(lonmin,lonmax)
@@ -231,7 +232,7 @@ def plot_arctic(
                       ticks=np.linspace(vmin_t,vmax_t,len([i for i in np.arange(vmin_t,vmax_t,1)])+1))
     cb3.set_label(long_name_t)
 
-    ax3.set_title(time_str+" ROMS Hotstart")
+    ax3.set_title(f"{time_str} - ROMS Hotstart - Layer: {lr}")
     # ax.set_facecolor('grey')
     ax3.set_xlim(lonmin,lonmax)
     ax3.set_ylim(latmin,latmax)
@@ -253,7 +254,7 @@ def plot_arctic(
                       ticks=np.linspace(vmin_s,vmax_s,len([i for i in np.arange(vmin_s,vmax_s,1)])+1))
     cb2.set_label(long_name_s)
 
-    ax2.set_title(time_str+" HYCOM Hotstart")
+    ax2.set_title(f"{time_str} - HYCOM Hotstart - Layer: {lr}")
     ax2.set_xlim(lonmin,lonmax)
     ax2.set_ylim(latmin,latmax)
     ax2.set_xlim(lonmin,lonmax)
@@ -271,7 +272,7 @@ def plot_arctic(
                       ticks=np.linspace(vmin_s,vmax_s,len([i for i in np.arange(vmin_s,vmax_s,1)])+1))
     cb4.set_label(long_name_s)
 
-    ax4.set_title(time_str+" ROMS Hotstart")
+    ax4.set_title(f"{time_str} - ROMS Hotstart - Layer: {lr}")
     ax4.set_xlim(lonmin,lonmax)
     ax4.set_ylim(latmin,latmax)
     ax4.set_xlim(lonmin,lonmax)
@@ -286,14 +287,14 @@ def plot_arctic(
         ax4.tricontour(triangulation, depth, levels=isobaths, linewidths=.5, colors="k")
 
     fig.tight_layout()
-    fig.savefig(output_dir+'{:04d}.jpeg'.format(n))
+    fig.savefig(output_dir+'{:04d}_{:02d}.jpeg'.format(n,lr))
     plt.close()
     plt.clf()
 
 def main(start_date,end_date,output_dir,isobaths,data_dir_h,data_dir_r):
 
-    long_name_t="Sea Surface Temperature (degC)"
-    long_name_s="Sea Surface Salinity (PSU)"
+    long_name_t="Temperature (degC)"
+    long_name_s="Salinity (PSU)"
 
     dates = dates_range(start_date, end_date)    
     times = [dd.strftime("%m/%d/%y") for dd in dates]
@@ -305,43 +306,46 @@ def main(start_date,end_date,output_dir,isobaths,data_dir_h,data_dir_r):
 
     for n, date in enumerate(dates):
         ds_th,ds_sh = open_schism(date, n, data_dir_h)
-        ds_th = np.array(ds_th.variables["temperature"][0,:,-1])
-        ds_sh = np.array(ds_sh.variables["salinity"][0,:,-1])
+        ds_th = np.array(ds_th.variables["temperature"][0,:,:])
+        ds_sh = np.array(ds_sh.variables["salinity"][0,:,:])
 
         ds_tr,ds_sr = open_schism(date, n, data_dir_r)
-        ds_tr = np.array(ds_tr.variables["temperature"][0,:,-1])
-        ds_sr = np.array(ds_sr.variables["salinity"][0,:,-1])
+        ds_tr = np.array(ds_tr.variables["temperature"][0,:,:])
+        ds_sr = np.array(ds_sr.variables["salinity"][0,:,:])
         print("creating plot ",n," of ", len(dates))
 
         time_str=times[n]
 
-        z_th = ds_th
-        z_sh = ds_sh
-        z_tr = ds_tr
-        z_sr = ds_sr    
 
-        plot_arctic(triangulation,
-                    z_th,
-                    z_sh,
-                    z_tr,
-                    z_sr,
-                    depth=depth,
-                    isobaths=isobaths,
-                    output_dir=output_dir,
-                    n=n,
-                    long_name_t=long_name_t,
-                    long_name_s=long_name_s,
-                    time_str=time_str,
-                    latmin=latmin,
-                    latmax=latmax,
-                    lonmin=lonmin,
-                    lonmax=lonmax,
-                    vmin_t=0,
-                    vmax_t=15,
-                    vmin_s=29,
-                    vmax_s=34,
-                    interv_t=.5,
-                    interv_s=.25)
+        for lr in range(ds_th.shape[-1]):
+
+            z_th = ds_th[:,lr]
+            z_sh = ds_sh[:,lr]
+            z_tr = ds_tr[:,lr]
+            z_sr = ds_sr[:,lr]    
+            plot_arctic(triangulation,
+                        z_th,
+                        z_sh,
+                        z_tr,
+                        z_sr,
+                        depth=depth,
+                        isobaths=isobaths,
+                        output_dir=output_dir,
+                        n=n,
+                        long_name_t=long_name_t,
+                        long_name_s=long_name_s,
+                        time_str=time_str,
+                        latmin=latmin,
+                        latmax=latmax,
+                        lonmin=lonmin,
+                        lonmax=lonmax,
+                        vmin_t=0,
+                        vmax_t=15,
+                        vmin_s=29,
+                        vmax_s=34,
+                        interv_t=.5,
+                        interv_s=.25,
+                        lr=lr)
 
     files = os.listdir(output_dir)
     files = sorted(files)
@@ -349,18 +353,18 @@ def main(start_date,end_date,output_dir,isobaths,data_dir_h,data_dir_r):
     for file in files:
         images.append(imageio.imread(output_dir+file))
         # os.remove(output_dir/file)
-    imageio.mimsave(output_dir+f'{start_date}_{end_date}_sstsss.gif',images, fps = 2)
+    imageio.mimsave(output_dir+f'sstsss_lr_{n}.gif',images, fps = 3)
 
 if __name__ == '__main__':
 
     # Enter your inputs here:
     # var = 'temperature'
     start_date='20190702'
-    end_date='20191030'
+    end_date='20190722'#'20191030'
     isobaths=[200,2000]#None
 
     data_dir_h=r"/work2/noaa/nosofs/felicioc/BeringSea/O04a_hychot/"
     data_dir_r=r"/work2/noaa/nosofs/felicioc/BeringSea/O04/"
-    output_dir=r"/work2/noaa/nosofs/felicioc/BeringSea/P04/sst_sst_roms_hycom/"
+    output_dir=r"/work2/noaa/nosofs/felicioc/BeringSea/P04/sst_sst_roms_hycom_lr/"
     
     main(start_date,end_date,output_dir,isobaths,data_dir_h,data_dir_r)

@@ -292,8 +292,8 @@ def plot_arctic(
 
 def main(start_date,end_date,output_dir,isobaths,data_dir_h,data_dir_r):
 
-    long_name_t="Sea Surface Temperature (degC)"
-    long_name_s="Sea Surface Salinity (PSU)"
+    long_name_t="Sea Bottom Temperature (degC)"
+    long_name_s="Sea Bottom Salinity (PSU)"
 
     dates = dates_range(start_date, end_date)    
     times = [dd.strftime("%m/%d/%y") for dd in dates]
@@ -305,12 +305,16 @@ def main(start_date,end_date,output_dir,isobaths,data_dir_h,data_dir_r):
 
     for n, date in enumerate(dates):
         ds_th,ds_sh = open_schism(date, n, data_dir_h)
-        ds_th = np.array(ds_th.variables["temperature"][0,:,-1])
-        ds_sh = np.array(ds_sh.variables["salinity"][0,:,-1])
+        ds_th = np.array(ds_th.variables["temperature"][0,:,:])
+        ds_th = [r[~np.isnan(r)][0] for r in ds_th]
+        ds_sh = np.array(ds_sh.variables["salinity"][0,:,:])
+        ds_sh = [r[~np.isnan(r)][0] for r in ds_sh]
 
         ds_tr,ds_sr = open_schism(date, n, data_dir_r)
-        ds_tr = np.array(ds_tr.variables["temperature"][0,:,-1])
-        ds_sr = np.array(ds_sr.variables["salinity"][0,:,-1])
+        ds_tr = np.array(ds_tr.variables["temperature"][0,:,:])
+        ds_tr = [r[~np.isnan(r)][0] for r in ds_tr]
+        ds_sr = np.array(ds_sr.variables["salinity"][0,:,:])
+        ds_sr = [r[~np.isnan(r)][0] for r in ds_sr]
         print("creating plot ",n," of ", len(dates))
 
         time_str=times[n]
@@ -349,7 +353,7 @@ def main(start_date,end_date,output_dir,isobaths,data_dir_h,data_dir_r):
     for file in files:
         images.append(imageio.imread(output_dir+file))
         # os.remove(output_dir/file)
-    imageio.mimsave(output_dir+f'{start_date}_{end_date}_sstsss.gif',images, fps = 2)
+    imageio.mimsave(output_dir+f'{start_date}_{end_date}_sstsss_bottom.gif',images, fps = 3)
 
 if __name__ == '__main__':
 
@@ -361,6 +365,6 @@ if __name__ == '__main__':
 
     data_dir_h=r"/work2/noaa/nosofs/felicioc/BeringSea/O04a_hychot/"
     data_dir_r=r"/work2/noaa/nosofs/felicioc/BeringSea/O04/"
-    output_dir=r"/work2/noaa/nosofs/felicioc/BeringSea/P04/sst_sst_roms_hycom/"
+    output_dir=r"/work2/noaa/nosofs/felicioc/BeringSea/P04/sst_sst_roms_hycom_bottom/"
     
     main(start_date,end_date,output_dir,isobaths,data_dir_h,data_dir_r)
