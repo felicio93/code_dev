@@ -1,11 +1,9 @@
 import os
 import time
-from copy import deepcopy
-import numpy as np
+
 import geopandas as gpd
-from shapely.geometry import ( # type: ignore[import]
-        Polygon, MultiPolygon, mapping)
-import pandas as pd
+from shapely.geometry import (
+        Polygon, MultiPolygon)
 import ocsmesh
 
 def remove_interiors(poly):
@@ -87,7 +85,7 @@ gdf= gdf[gdf.geometry.area >= 1e-3] #removing slivers based on area
 gdf['geometry'] = gdf.geometry.buffer(0.025)
 gdf = gdf.dissolve().explode()
 gdf.geometry=gdf.geometry.apply(lambda p: close_holes(p))
-gdf.to_file(path+"shapefiles/fp_domain.shp")
+gdf.to_file(path+"outputs/fp_domain.shp")
 
 end_time = time.time()
 elapsed_time = end_time - start_time
@@ -125,7 +123,6 @@ geom = ocsmesh.Geom(
     geom_rast_list,
     base_shape=gdf.union_all(),
     base_shape_crs=gdf.crs,
-    # zmax=10
     )
 hfun = ocsmesh.Hfun(
     hfun_rast_list,
