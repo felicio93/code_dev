@@ -1,9 +1,11 @@
 import os
 import time
-
+from copy import deepcopy
+import numpy as np
 import geopandas as gpd
-from shapely.geometry import (
-        Polygon, MultiPolygon)
+from shapely.geometry import ( # type: ignore[import]
+        Polygon, MultiPolygon, mapping)
+import pandas as pd
 import ocsmesh
 
 def remove_interiors(poly):
@@ -82,7 +84,10 @@ gdf.geometry=gdf.geometry.apply(lambda p: close_holes(p)) #closing all holes in 
 gdf= gdf[gdf.geometry.area >= 1e-3] #removing slivers based on area
 
 #creating a buffer around the true FP and dissolving it so we have 1 continuos FP:
-gdf['geometry'] = gdf.geometry.buffer(0.025)
+gdf_0 = deepcopy(gdf)
+gdf_0 = gdf_0.dissolve()
+gdf_0.to_file(path+"outputs/gdf_0.shp")
+gdf['geometry'] = gdf.geometry.buffer(0.04)
 gdf = gdf.dissolve().explode()
 gdf.geometry=gdf.geometry.apply(lambda p: close_holes(p))
 gdf.to_file(path+"outputs/fp_domain.shp")
@@ -100,7 +105,7 @@ start_time = time.time()
 ###################
 rm_poly = gpd.read_file(path+"inputs/rivers_v49.shp")
 river_tr = ocsmesh.utils.triangulate_rivermapper_poly(rm_poly)
-river_tr = ocsmesh.utils.clip_mesh_by_shape(river_tr, gdf.union_all())
+river_tr = ocsmesh.utils.clip_mesh_by_shape(river_tr, gdf_0.union_all())
 ocsmesh.Mesh(river_tr).write(path+"outputs/river_tr_v49.2dm", format='2dm', overwrite=True)
 del rm_poly, river_tr
 
@@ -123,14 +128,18 @@ geom = ocsmesh.Geom(
     geom_rast_list,
     base_shape=gdf.union_all(),
     base_shape_crs=gdf.crs,
+    # zmax=10
     )
 hfun = ocsmesh.Hfun(
     hfun_rast_list,
     base_shape=gdf.union_all(),
     base_shape_crs=geom.crs,
-    hmin=500, hmax=1000,
+    hmin=500, hmax=10000,
     method='fast')
-hfun.add_constant_value(500, lower_bound=-5, upper_bound=99999)
+hfun.add_constant_value(10000, lower_bound=-99999, upper_bound=-20)
+hfun.add_constant_value(1000, lower_bound=-20, upper_bound=-5)
+hfun.add_constant_value(500, lower_bound=-5, upper_bound=10)
+hfun.add_constant_value(1000, lower_bound=10, upper_bound=99999)
 driver = ocsmesh.JigsawDriver(geom, hfun, crs=4326)
 fp_mesh = driver.run()
 
