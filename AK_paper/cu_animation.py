@@ -75,6 +75,7 @@ triangulation = tri.Triangulation(x=x, y=y, triangles=connect_tri)
 interv=0.05
 vmin, vmax = -1,1
 
+i_ts,i_zts,i_vel,i_d = [],[],[],[]
 for dt in range(1,121):
 
     #fields
@@ -114,7 +115,7 @@ for dt in range(1,121):
     d = [math.atan2(vts,uts) / math.pi * 180 % 360.0 for uts, vts in zip(uts, vts)]
     d = [deg * np.pi / 180 for deg in d]
 
-    i_ts,i_zts,i_vel,i_d = [],[],[],[]
+
     for hr_idx,t in enumerate(ts):
 
         z_hr_idx = zeta[hr_idx]
@@ -130,7 +131,8 @@ for dt in range(1,121):
         i_vel.append(vel_hr_idx)
         i_d.append(i_d_hr_idx)
 
-        
+        i_time = str(ts[hr_idx]).split(".")[0]
+
         cmap = plb.cm.jet
         cmaplist = [cmap(i) for i in range(cmap.N)]
         cmap = mpl.colors.LinearSegmentedColormap.from_list(
@@ -157,7 +159,7 @@ for dt in range(1,121):
         cb.set_label("Zeta (m)")
         
         # Create fields plot: Cu
-        ax.quiver(x, y, u_hr_idx, v_hr_idx, scale=50, transform=ccrs.PlateCarree(), width=0.0005, pivot='middle')
+        ax.quiver(x, y, u_hr_idx, v_hr_idx, scale=50, transform=ccrs.PlateCarree(), width=0.0005, pivot='middle', color='k')
 
         #Zoom in
         ax.set_xlim(4.6,7.1)
@@ -166,6 +168,9 @@ for dt in range(1,121):
         ax.plot(185.931, 52.119, 'rx', transform=ccrs.Geodetic())   
         # ax.add_feature(cfeature.COASTLINE)
         # ax.add_feature(cfeature.BORDERS)
+        
+        ax.set_facecolor('lightgray')
+        ax.set_title(i_time)
 
         #Cu timeseries plot:
         ax2 = fig.add_subplot(212,)
@@ -201,6 +206,7 @@ for dt in range(1,121):
                 color='r',
                 scale=50,
                     width=0.0015)
+        ax4.set_yticks([])
 
         ax2.set_ylim(-2, 2)
         ax3.set_ylim(-2, 2)
