@@ -83,13 +83,13 @@ gdf = gpd.GeoDataFrame(geometry = gpd.GeoSeries(fp_c),crs=4326).dissolve().explo
 gdf.geometry=gdf.geometry.apply(lambda p: close_holes(p)) #closing all holes in the polygons
 gdf= gdf[gdf.geometry.area >= 1e-3] #removing slivers based on area
 
-#creating a buffer around the true FP and dissolving it so we have 1 continuos FP:
-gdf_0 = deepcopy(gdf)
-gdf_0 = gdf_0.dissolve()
-gdf_0['geometry'] = gdf_0.geometry.buffer(0.02)
-gdf_0 = gdf_0.dissolve().explode()
-gdf_0.geometry=gdf_0.geometry.apply(lambda p: close_holes(p))
-gdf_0.to_file(path+"outputs/gdf_0.shp")
+##creating a buffer around the true FP and dissolving it so we have 1 continuos FP:
+#gdf_0 = deepcopy(gdf)
+#gdf_0 = gdf_0.dissolve()
+#gdf_0['geometry'] = gdf_0.geometry.buffer(0.02)
+#gdf_0 = gdf_0.dissolve().explode()
+#gdf_0.geometry=gdf_0.geometry.apply(lambda p: close_holes(p))
+#gdf_0.to_file(path+"outputs/gdf_0.shp")
 
 gdf['geometry'] = gdf.geometry.buffer(0.01)
 gdf = gdf.dissolve().explode()
@@ -109,7 +109,7 @@ start_time = time.time()
 ###################
 rm_poly = gpd.read_file(path+"inputs/rivers_v49.shp")
 river_tr = ocsmesh.utils.triangulate_rivermapper_poly(rm_poly)
-river_tr = ocsmesh.utils.clip_mesh_by_shape(river_tr, gdf_0.union_all())
+river_tr = ocsmesh.utils.clip_mesh_by_shape(river_tr, gdf.union_all(), adjacent_layers=10)
 ocsmesh.Mesh(river_tr).write(path+"outputs/river_tr_v49.2dm", format='2dm', overwrite=True)
 del rm_poly, river_tr
 
