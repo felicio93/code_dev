@@ -187,6 +187,7 @@ start_time = time.time()
 ocean_mesh = ocsmesh.Mesh.open(path+"inputs/ocean_mesh.2dm", crs=4326)
 fp_r_o = ocsmesh.utils.merge_overlapping_meshes([fp_r, ocean_mesh.msh_t])
 ocsmesh.Mesh(fp_r_o).write(path+"outputs/fp_r_o.2dm", format='2dm', overwrite=True)
+ocsmesh.Mesh(fp_r_o).write(path+"outputs/hgrid.ll", format='grd', overwrite=True)
 
 end_time = time.time()
 elapsed_time = end_time - start_time
