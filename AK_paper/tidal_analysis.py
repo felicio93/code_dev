@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import matplotlib.pylab as plb
 import matplotlib.tri as tri
 import matplotlib.dates as mdates
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def split_quads(face_nodes: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
@@ -94,6 +95,7 @@ for i in range(len(h[0,:])):
         constit=["M2", "S2", "K1", "O1", "N2", "K2", "P1", "Q1", "S1"],
         method="ols",
         conf_int='linear',
+        order_constit=["M2", "S2", "K1", "O1", "N2", "K2", "P1", "Q1", "S1"],
         verbose=False,
                       )
     amp.append(coef['A'])
@@ -105,3 +107,53 @@ df_phs = pd.DataFrame(phs, columns=["M2", "S2", "K1", "O1", "N2", "K2", "P1", "Q
 
 df_amp.to_csv(f'{rundir}/df_amp.csv', index=False)
 df_phs.to_csv(f'{rundir}/df_phs.csv', index=False)
+
+
+### Plot: ###
+df_amp = pd.read_csv(f'{rundir}/df_amp.csv')
+df_phs = pd.read_csv(f'{rundir}/df_phs.csv')
+
+x,y,connect_tri,depth = fixed_connectivity_tri(f'{rundir}/run/outputs/')
+triangulation = tri.Triangulation(x=x, y=y, triangles=connect_tri)
+lonmin,lonmax=x.min(),x.max()
+latmin,latmax=y.min(),y.max()
+
+vmin, vmax, interv = 0,1,0.05
+phases = [0,15,30,45,60,75,90,105,120,135,150,165,180,195,210,225,240,255,270,285,300,315,330,345]
+
+for column_name in df_amp.columns:
+
+    print(column_name)
+    cmap = plb.cm.jet
+    cmaplist = [cmap(i) for i in range(cmap.N)]
+    cmap = mpl.colors.LinearSegmentedColormap.from_list(
+        'Custom cmap', cmaplist, cmap.N)
+    bounds = np.linspace(vmin, vmax, len([i for i in np.arange(vmin, vmax, interv)])+1)
+    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+    
+    fig = plt.figure(figsize=(10,5))
+    ax = fig.add_subplot(111)
+    tp = ax.tripcolor(triangulation,df_amp[column_name],shading='flat',cmap=cmap,norm=norm)
+    div = make_axes_locatable(ax)
+    cax = div.append_axes("right", size="5%", pad=0.2)
+    cb = fig.colorbar(tp,
+                      cax=cax,
+                      boundaries=np.arange(vmin,vmax,interv),
+                      cmap=cmap,norm=norm,
+                      ticks=np.linspace(vmin,vmax,len([i for i in np.arange(vmin,vmax,.5)])+1))
+    cb.set_label("Tidal Amplitude (m)")
+    
+    ax.set_title(column_name)
+    ax.set_facecolor('grey')
+    ax.set_xlim(lonmin,lonmax)
+    ax.set_ylim(latmin,latmax)
+    ax.set_xlim(lonmin,lonmax)
+    ax.set_ylim(latmin,latmax)
+    
+    tricontour = ax.tricontour(triangulation, df_phs[column_name], levels=phases, linewidths=.5, colors="white")
+    ax.clabel(tricontour, inline=True, fontsize=7., colors="k")
+    
+    fig.tight_layout()
+    # fig.show()
+    fig.savefig(f'{rundir}/tidal_maps/{column_name}.jpeg',dpi=300)
+    plt.clf()
