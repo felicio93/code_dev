@@ -1,3 +1,38 @@
+#!/usr/bin/env python3
+'''
+End to end floodplain mesh gen.
+
+Needs to prepare the following folders:
+    path/
+    |-- endtoend.py
+    |-- inputs/
+    |   |-- hgrid.gr3
+    |   |-- ocean_mesh.2dm
+    |   |-- rivers_v49.shp
+    |   |-- dems/
+    |       |-- gebco_file.tif  
+    |-- outputs/
+
+- path: defined on line 103
+
+- hgrid.gr3: STOFS3D mesh, used for defining the floodplain domain.
+    Please download it using: wget XX
+
+- ocean_mesh.2dm: Ocean mesh, merged to the river+floodplina mesh at the end.
+    Please download it using: wget XX
+
+- rivers_v49.shp: RiverMapper polygons, used to create the river mesh.
+    Please download it using: wget XX
+    For details on how to create this file, please refer to: https://github.com/schism-dev/RiverMeshTools
+
+- gebco_file.tif: should be placed inside dems/, should cover the entire model domain.
+    Please download it from: https://download.gebco.net/
+    Using the coordinates: -98.5 -51.0, 3, 53
+
+- outputs/: where outputs (final mesh) will be saved.
+'''
+
+
 import os
 import time
 from copy import deepcopy
@@ -65,7 +100,7 @@ def close_holes(geom):
 
 
 
-path = r"/work2/noaa/nosofs/felicioc/OCSMesh_Paper/MeshGen/"
+path = r"/work2/noaa/nosofs/felicioc/OCSMesh_Paper/step_01_MeshGen/"
 
 print("Begin Deliniating the Floodplain Domain")
 start_time = time.time()
@@ -83,7 +118,7 @@ gdf = gpd.GeoDataFrame(geometry = gpd.GeoSeries(fp_c),crs=4326).dissolve().explo
 gdf.geometry=gdf.geometry.apply(lambda p: close_holes(p)) #closing all holes in the polygons
 gdf= gdf[gdf.geometry.area >= 1e-3] #removing slivers based on area
 
-##creating a buffer around the true FP and dissolving it so we have 1 continuos FP:
+#creating a buffer around the true FP and dissolving it so we have 1 continuos FP:
 #gdf_0 = deepcopy(gdf)
 #gdf_0 = gdf_0.dissolve()
 #gdf_0['geometry'] = gdf_0.geometry.buffer(0.02)
@@ -109,7 +144,7 @@ start_time = time.time()
 ###################
 rm_poly = gpd.read_file(path+"inputs/rivers_v49.shp")
 river_tr = ocsmesh.utils.triangulate_rivermapper_poly(rm_poly)
-river_tr = ocsmesh.utils.clip_mesh_by_shape(river_tr, gdf.union_all(), adjacent_layers=10)
+river_tr = ocsmesh.utils.clip_mesh_by_shape(river_tr, gdf.union_all(), adjacent_layers=8)
 ocsmesh.Mesh(river_tr).write(path+"outputs/river_tr_v49.2dm", format='2dm', overwrite=True)
 del rm_poly, river_tr
 
@@ -142,7 +177,7 @@ hfun = ocsmesh.Hfun(
     method='fast')
 #hfun.add_constant_value(3000, lower_bound=-99999, upper_bound=-20)
 hfun.add_constant_value(1200, lower_bound=-999990, upper_bound=-5)
-hfun.add_constant_value(600, lower_bound=-5, upper_bound=99999)
+hfun.add_constant_value(500, lower_bound=-5, upper_bound=99999)
 #hfun.add_constant_value(1200, lower_bound=10, upper_bound=99999)
 driver = ocsmesh.JigsawDriver(geom, hfun, crs=4326)
 fp_mesh = driver.run()
@@ -179,6 +214,46 @@ del fp_mesh, river_mesh
 end_time = time.time()
 elapsed_time = end_time - start_time
 print(f"Time taken for River+Floodplain Mesh Merge: {elapsed_time} seconds")
+
+
+print("Begin River+Floodplain Mesh Cleanup")
+start_time = time.time()
+###Remove islands in the floodplain+river (cleanup for source_sink placement)
+fp_r_poly = ocsmesh.utils.get_mesh_polygons(fp_r)
+
+fp_r_gdf_noholes = gpd.GeoDataFrame(geometry = gpd.GeoSeries(fp_r_poly),crs=4326).dissolve().explode()
+fp_r_gdf_noholes.geometry = fp_r_gdf_noholes.geometry.apply(lambda p: close_holes(p)) #closing all holes in the polygons
+fp_r_noholes_poly = fp_r_gdf_noholes.union_all()
+
+fp_islands = fp_r_noholes_poly.difference(fp_r_poly)
+fp_islands = gpd.GeoDataFrame(geometry = gpd.GeoSeries(fp_islands),crs=4326).dissolve().explode()
+area_threshold = 1.0e-15 #to remove slivers
+fp_islands['area'] = fp_islands.geometry.area
+fp_islands = fp_islands[fp_islands['area'] >= area_threshold]
+#fp_islands = fp_islands.reset_index(drop=True)
+
+msht_island = ocsmesh.utils.triangulate_polygon(fp_islands)
+fp_r = ocsmesh.utils.merge_neighboring_meshes(fp_r,msht_island)
+
+fp_r = ocsmesh.utils.cleanup_folded_bound_el(fp_r)
+fp_r_poly = ocsmesh.utils.get_mesh_polygons(fp_r)
+fp_r_gdf = gpd.GeoDataFrame(geometry = gpd.GeoSeries(fp_r_poly),crs=4326).dissolve().explode()
+fp_r_gdf = fp_r_gdf.reset_index(drop=True)
+
+fp_r_gdf['area'] = fp_r_gdf.geometry.area
+largest_poly = fp_r_gdf.loc[fp_r_gdf['area'].idxmax()]
+
+fp_r = ocsmesh.utils.clip_mesh_by_shape(fp_r, largest_poly.geometry, adjacent_layers=12)
+
+ocsmesh.utils.cleanup_duplicates(fp_r)
+ocsmesh.utils.cleanup_isolates(fp_r)
+ocsmesh.utils.put_id_tags(fp_r)
+
+ocsmesh.Mesh(fp_r).write(path+"outputs/fp_r_islands.2dm", format='2dm', overwrite=True)
+
+end_time = time.time()
+elapsed_time = end_time - start_time
+print(f"Time taken for River+Floodplain Mesh Clean up: {elapsed_time} seconds")
 
 
 print("Begin RiverFloodplain+Ocean Mesh Merge")
