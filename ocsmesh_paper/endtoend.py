@@ -232,7 +232,7 @@ fp_islands['area'] = fp_islands.geometry.area
 fp_islands = fp_islands[fp_islands['area'] >= area_threshold]
 #fp_islands = fp_islands.reset_index(drop=True)
 
-msht_island = ocsmesh.utils.triangulate_polygon(fp_islands)
+msht_island = ocsmesh.utils.triangulate_polygon_s(fp_islands)
 fp_r = ocsmesh.utils.merge_neighboring_meshes(fp_r,msht_island)
 
 fp_r = ocsmesh.utils.cleanup_folded_bound_el(fp_r)
