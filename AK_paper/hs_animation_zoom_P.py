@@ -1,29 +1,38 @@
-
+#!/usr/bin/env python3
 """
+This script serves as a template for parallel mesh plotting.
+
+Before running remember to load:
 module load openmpi
 
-run as: srun -N 1 -n 80 python hs_animation_zoom_P.py > mpi_output.log 2>&1
+You can run it on a single node:
+srun -N 1 -n 80 python hs_animation_zoom_P.py > mpi_output.log 2>&1
+
+or multi-node:
+srun -N 2 -n 160 python hs_animation_zoom_P.py > mpi_output.log 2>&1
+
+I recommend you use as many nodes needed for: -n > number of .nc output files
+
+
+Other variables (other than Hs) or 
+unstructured models (ADCIRC, FVCOM, etc.) 
+can be easily added by changing the plot func.
+
 """
 
-from mpi4py import MPI
 import os
 import sys
+import time
+import re
 
-#from __future__ import annotations
+from mpi4py import MPI
 import xarray as xr
 import numpy as np
-
-#import ocsmesh
-
-import pathlib
-
-import matplotlib.pyplot
-import netCDF4
-import pandas as pd
 
 import numpy.typing as npt
 import typing as T
 
+import matplotlib.pyplot
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.pylab as plb
@@ -33,6 +42,11 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import cv2
 
+
+def natural_sort_key(s):
+    """Key function for natural sorting."""
+    return [int(text) if text.isdigit() else text.lower() 
+            for text in re.split(r'(\d+)', s)]
 
 def split_quads(face_nodes: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
     """
@@ -85,7 +99,7 @@ def fixed_connectivity_tri(data_dir):
     return x,y,connect_tri,depth
 
 
-def create_video_from_images(image_folder, output_file, fps=6):
+def create_video_from_images(image_folder, output_file, fps=18):
     """Creates an MP4 video from a folder of images.
 
     Args:
@@ -133,7 +147,7 @@ def plot(file,
     for a zoomed in area around Atka Island
     """
 
-
+    # Making sure the files are opened correctly
     try:
         ds = xr.open_dataset(file,
                             engine='h5netcdf',
@@ -162,11 +176,12 @@ def plot(file,
         sys.stdout.flush()
         raise e 
 
-
+    # Iterating over the timesteps:
     for hr_idx,t in enumerate(ts):
 
         i_time = str(ts[hr_idx]).split(".")[0]
 
+        # Creating my own colormap:
         cmap = plb.cm.jet
         cmaplist = [cmap(i) for i in range(cmap.N)]
         cmap = mpl.colors.LinearSegmentedColormap.from_list(
@@ -174,7 +189,7 @@ def plot(file,
         bounds = np.linspace(vmin, vmax, len([i for i in np.arange(vmin, vmax, interv)])+1)
         norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
         
-        # Create fields plot
+        # Create fields subplots:
         fig = plt.figure(figsize=(10, 8))
         ax = fig.add_subplot(211)
         
@@ -209,43 +224,48 @@ def plot(file,
         ax2.set_facecolor('lightgray')
 
 
-        # Show the plot
+        # Saving plots:
         fig.tight_layout()
-        print(f"saving file: {wdir}{f:03}_{hr_idx:03}.jpeg, from rank: {rank}")
-        sys.stdout.flush()
+        #print(f"saving file: {wdir}{f:03}_{hr_idx:03}.jpeg, from rank: {rank}")
+        #sys.stdout.flush()
         fig.savefig(f"{wdir}{f:03}_{hr_idx:03}.jpeg",dpi=300)
      
         plt.close(fig)
 
 
 def main():
+    start_time = time.time()
 
     ### Enter inputs here:
     rdir = r"/work2/noaa/nosofs/felicioc/BeringSea/R08/outputs/"
     interv=0.5
     vmin, vmax = 0,10
     wdir = r"/work2/noaa/nosofs/felicioc/BeringSea/P08/hs_fig_p/"
+    ###
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    # This is just a check:
-    # if rank == 0:
-    #     print(f"Rank {rank} is starting the task...")clear
-    # else:
-    #     print(f"Rank {rank} is doing its part.")
-    # sys.stdout.flush()
+    comm.Barrier()
+
+    ##This is just a check:
+    #if rank == 0:
+    #    print(f"Rank {rank} is starting the task... size={size}")
+    #else:
+    #    print(f"Rank {rank} is doing its part. size={size}")
+    #sys.stdout.flush()
+
+    print(f"This is just a check: from rank {rank} out of {size} ranks")
+    sys.stdout.flush()
 
     # Break quads and gather the mesh info (constant for all outputs):
     x,y,connect_tri,depth = fixed_connectivity_tri(f'{rdir}')
     triangulation = tri.Triangulation(x=x, y=y, triangles=connect_tri)
 
     # Distribute file processing across ranks
-    surface_files = sorted([f'{rdir}/{i}' for i in os.listdir(rdir) if i.startswith('out2d_')])
-    #file_list = [(surface_files[i], i) for i in range(0, len(surface_files))]
-    file_list = [(surface_files[i], i) for i in range(0, 90)]
-
+    surface_files = sorted([f'{rdir}/{i}' for i in os.listdir(rdir) if i.startswith('out2d_')], key=natural_sort_key)
+    file_list = [(surface_files[i], i) for i in range(0, len(surface_files))]
 
     # if you want to plot 3D variables, you will use something like:
     # surface_files = sorted([f'{rdir}/{i}' for i in os.listdir(rdir) if i.startswith('out2d_')])
@@ -266,6 +286,18 @@ def main():
         sys.stdout.flush()
 
         plot(files[0], files[1], vmin, vmax, interv, x, y, triangulation, wdir, rank)
+    
+    comm.Barrier()
+
+    if rank == 0:
+        create_video_from_images(wdir, "movie.mp4")
+
+        # End the timer and calculate the elapsed time
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        # Print the total elapsed time for the script
+        print(f"Total time taken for the script to run: {elapsed_time:.2f} seconds.")
+        sys.stdout.flush()
 
     MPI.Finalize()
 
