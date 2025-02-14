@@ -230,6 +230,9 @@ def auto_hotstart(job_scheduler='slurm', rundir=None, last_stack=None):
     # --------------------- initialize empty files -----------------------
     file_names_to_create = [f'{rundir}/outputs/staout_{i}' for i in range(1,10)]+[f'{rundir}/outputs/flux.out']
     create_empty_files(file_names_to_create)
+    # create backups:
+    os.system(f'cp {rundir}/wwminput.nml {rundir}/wwminput0.nml')
+    os.system(f'cp {rundir}/param.nml {rundir}/param0.nml')
 
     # --------------------- monitor the run -----------------------    
     previous_time_step = -1  # initialize
@@ -409,6 +412,7 @@ def auto_hotstart(job_scheduler='slurm', rundir=None, last_stack=None):
             # Replace_string_in_file('~/bin/run_test', f'RUN{run_id}', 'RUNxxx')
 
     os.system(f'rm {rundir}/hotfile*')
+    os.system(f'rm {rundir}/outputs/hotstart_0*')
     decor_print('Task completed. ')
 
 
