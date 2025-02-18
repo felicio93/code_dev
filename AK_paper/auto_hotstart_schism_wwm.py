@@ -343,7 +343,7 @@ def auto_hotstart(job_scheduler='slurm', rundir=None, last_stack=None):
                 os.chdir(f'{rundir}')
                 decor_print(f'linking {hot_combined}')
                 os.system(f'rm {rundir}/hotstart.nc')
-                os.symlink(hot_combined, f'{rundir}/hotstart.nc')
+                os.system(f'ln -sf {hot_combined} {rundir}/hotstart.nc')
                 
                 # dealing with the paired normal run
                 if rundir_normal != '':
@@ -367,7 +367,7 @@ def auto_hotstart(job_scheduler='slurm', rundir=None, last_stack=None):
                 for wwm_hotout_file in wwm_hotout_files:
                     wwm_hotin_file = os.path.basename(wwm_hotout_file).replace('out', 'in')
                     wwm_hotin_file = os.path.join(rundir, wwm_hotin_file)
-                    os.symlink(wwm_hotout_file, wwm_hotin_file)
+                    os.system(f'ln -sf {wwm_hotout_file} {wwm_hotin_file}')
 
                 # Get the list of ocean_time in the hotstart
                 variable_name = "ocean_time_str" 
