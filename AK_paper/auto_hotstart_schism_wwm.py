@@ -231,8 +231,8 @@ def auto_hotstart(job_scheduler='slurm', rundir=None, last_stack=None):
     file_names_to_create = [f'{rundir}/outputs/staout_{i}' for i in range(1,10)]+[f'{rundir}/outputs/flux.out']
     create_empty_files(file_names_to_create)
     # create backups:
-    #os.system(f'cp {rundir}/wwminput.nml {rundir}/wwminput0.nml')
-    #os.system(f'cp {rundir}/param.nml {rundir}/param0.nml')
+    os.system(f'cp {rundir}/wwminput0.nml {rundir}/wwminput.nml')
+    os.system(f'cp {rundir}/param0.nml {rundir}/param.nml')
 
     # --------------------- monitor the run -----------------------    
     previous_time_step = -1  # initialize
@@ -385,7 +385,7 @@ def auto_hotstart(job_scheduler='slurm', rundir=None, last_stack=None):
 
                 # Updated wwmintput.nml: '\s*{var_name}\s*=\s*(\S.*\S|\S)'
                 Replace_string_in_file(f'{rundir}/wwminput.nml', r'\s*LHOTR\s*=\s*(\S.*\S|\S)', '    LHOTR = .true.!')
-                Replace_string_in_file(f'{rundir}/wwminput.nml', r'\s*BEGTC\s*=\s*(\S.*\S|\S)', f'    BEGTC = "{hot_time_s[idx_max_hot]}"!')
+                Replace_string_in_file(f'{rundir}/wwminput.nml', r'\s*BEGTC\s*=\s*(\S.*\S|\S)', f"""    BEGTC = '{hot_time_s[idx_max_hot]}'!""")
                 Replace_string_in_file(f'{rundir}/wwminput.nml', r'\s*IHOTPOS_IN\s*=\s*(\S.*\S|\S)', f'    IHOTPOS_IN = {int(idx_max_hot+1)}!')  
                             
 
