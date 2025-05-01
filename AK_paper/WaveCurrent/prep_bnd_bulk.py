@@ -1,7 +1,7 @@
 import os
 import xarray as xr
 import numpy as np
-import ocsmesh
+#import ocsmesh
 
 def convert_longitude(lon,mode):
     """
@@ -84,6 +84,7 @@ def find_and_sort_files(directory, search_string):
 
 def main(path,xmin,xmax,ymin,ymax,variables):
 
+
     for var in variables:
         print(f"Preparing {var} data...")
         files = find_and_sort_files(path, var)
@@ -97,17 +98,22 @@ def main(path,xmin,xmax,ymin,ymax,variables):
             dd.append(ds)
         print(f"...Concat and save final {var} data")
         dataset = xr.concat(dd,dim='time')
-        dataset.to_netcdf(f"{path}/{var}.nc")
+
+        #fix the encoding problem:
+        encoding = {vv: {"_FillValue":None} for vv in ["longitude", "latitude", "time","MAPSTA", var]}
+        dataset.to_netcdf(f"{path}/{var}.nc", encoding=encoding)
+
 
 
 if __name__ == "__main__":
     
     path = r"./"
-    mesh = ocsmesh.Mesh.open(path + 'hgrid.gr3', crs=4326)
-    xmin,xmax = mesh.vert2['coord'][:, 0].min()-0.5,mesh.vert2['coord'][:, 0].max()+0.5
-    ymin,ymax = mesh.vert2['coord'][:, 1].min()-0.5,mesh.vert2['coord'][:, 1].max()+0.5
+    #mesh = ocsmesh.Mesh.open(path + 'hgrid.gr3', crs=4326)
+    #xmin,xmax = mesh.vert2['coord'][:, 0].min()-0.5,mesh.vert2['coord'][:, 0].max()+0.5
+    #ymin,ymax = mesh.vert2['coord'][:, 1].min()-0.5,mesh.vert2['coord'][:, 1].max()+0.5
     variables = ["fp", "dir", "hs", "t02", "spr"]
+    ymin,ymax=48.,69.
+    xmin,xmax=154.,206.
 
     main(path,xmin,xmax,ymin,ymax,variables)
-
 
