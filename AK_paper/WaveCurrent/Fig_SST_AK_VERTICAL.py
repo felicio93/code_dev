@@ -205,7 +205,7 @@ def plot_arctic(
     ax2.legend(loc=4)
     ax2.set_ylabel("Vertical Layer #")
     ax2.set_xlabel('Temperature (degC)')
-    ax3.set_xlim(0,11)
+    ax2.set_xlim(0,11)
 
 
     if depth is not None and isobaths is not None:
