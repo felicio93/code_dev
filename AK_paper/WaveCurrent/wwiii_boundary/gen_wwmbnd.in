@@ -1,0 +1,4 @@
+3 #!ncond, i.e. number of conditions
+1 2 2 #!cond1 #seg flag ob
+2 59 0 #!cond2 #seg flag land
+3 0 0
