@@ -1,0 +1,5 @@
+Usage: ./getdata.sh start_date end_date
+Example: ./getdata.sh 20180101 20180201
+Require: nco (netcdf operator)
+
+subset outputs will be in "subset"
