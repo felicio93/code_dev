@@ -1,0 +1,26 @@
+#!/bin/bash --login
+
+#SBATCH -D .
+#SBATCH -J R09b
+#SBATCH -A nos-surge
+#SBATCH -p hercules
+##SBATCH --qos=windfall!debug
+##queues: 'windfall' max 450 nodes (no walltime limit but lower priority; for quick turn-around try <=8 hrs)
+###80 cores/node (mem 512GB/node)
+#SBATCH -N 50
+#SBATCH -n 2409
+#SBATCH --exclusive
+#SBATCH -t 08:00:00
+#SBATCH -o myout
+#SBATCH -e err2.out
+#SBATCH --mail-user=felicio.cassalho@noaa.gov
+#SBATCH --mail-type=NONE  #send email for start, end and fail
+
+
+set -e
+ulimit -s unlimited 
+
+
+source /home/felicioc/modules_schism.hercules
+
+srun ./pschism_HERCULES_WWM_NO_PARMETIS_PREC_EVAP_BLD_STANDALONE_SH_MEM_COMM_TVD-VL 16
