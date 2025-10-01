@@ -168,7 +168,10 @@ def main():
                             task_list.append((file_path, 'horizontalVelX', file_num))
                         elif filename.startswith('temperature_'):
                             task_list.append((file_path, 'temperature', file_num))
-            
+                        elif filename.startswith('salinity_'):
+                            task_list.append((file_path, 'salinity', file_num))
+
+           
             task_list.sort(key=lambda x: (x[2], x[0]))
             print(f"Rank 0: Found {len(task_list)} total tasks to distribute.")
 
@@ -203,6 +206,8 @@ def main():
     create_final_average_parallel(comm, output_dir, "horizontalVelX_avg_*.nc", "horizontalVelX", "FINAL_grand_average_hvelx.nc")
     comm.Barrier()
     create_final_average_parallel(comm, output_dir, "temperature_avg_*.nc", "temperature", "FINAL_grand_average_temp.nc")
+    comm.Barrier()
+    create_final_average_parallel(comm, output_dir, "salinity_avg_*.nc", "salinity", "FINAL_grand_average_salt.nc")
     
     comm.Barrier()
     if rank == 0:
