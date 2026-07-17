@@ -81,7 +81,7 @@ while [ "$current_date" -le "$end_date_sec" ]; do
     # aggregation. We correct this by computing the exact time value for this
     # day (hours since 2000-01-01) and overwriting the time variable directly.
     cdo adipot ts3z_${date_flat}.nc ts_test1.nc
-    HOURS_SINCE=$(( ( $(date -d "$date_hyphen" +%s) - $(date -d "2000-01-01" +%s) ) / 3600 ))
+    HOURS_SINCE=$(( ( $(TZ=UTC date -d "$date_hyphen" +%s) - $(TZ=UTC date -d "2000-01-01" +%s) ) / 3600 ))
     ncap2 -O -s "time(:)=${HOURS_SINCE}.0" ts_test1.nc ts_test1.nc
 
     # Cast data variables to 32-bit floats (keep time as double to preserve precision)

@@ -80,7 +80,7 @@ while [ "$current_date" -le "$end_date_sec" ]; do
     # ncpdq -U unpacks the packed time coordinate using the aggregation's scale/offset,
     # yielding the last timestamp in the source dataset rather than the requested day.
     # We recompute the correct value (hours since 2000-01-01) from the date string.
-    HOURS_SINCE=$(( ( $(date -d "$date_hyphen" +%s) - $(date -d "2000-01-01" +%s) ) / 3600 ))
+    HOURS_SINCE=$(( ( $(TZ=UTC date -d "$date_hyphen" +%s) - $(TZ=UTC date -d "2000-01-01" +%s) ) / 3600 ))
     ncap2 -O -s "time(:)=${HOURS_SINCE}.0" uv_test1.nc uv_test1.nc
     ncap2 -O -s 'depth=float(depth); lat=float(lat); lon=float(lon); water_u=float(water_u); water_v=float(water_v);' uv_test1.nc uv_test2.nc
 
