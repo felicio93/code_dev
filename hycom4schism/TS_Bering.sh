@@ -22,22 +22,22 @@ while [ "$current_date" -le "$end_date_sec" ]; do
     echo "Processing $date_hyphen..."
     
     # 3. Strict Date-Based Epoch Mapping
-    # NOTE: Use http:// (not https://) - NCO OPeNDAP does not support HTTPS DAP on this system.
     # GLBv0.08 epochs (pre-2018): single aggregated file, no variable sub-paths.
     # GLBy0.08/expt_93.0 (2018+): split by variable and year -> /ts3z/YYYY
+    # NOTE: Run these scripts from the DTN node (hercules-dtn) which has external internet access.
     if [ "$date_flat" -le 20170131 ]; then
-        EPOCH_URLS=("http://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_57.2")
+        EPOCH_URLS=("https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_57.2")
     elif [ "$date_flat" -le 20170531 ]; then
-        EPOCH_URLS=("http://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_92.8")
+        EPOCH_URLS=("https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_92.8")
     elif [ "$date_flat" -le 20170930 ]; then
-        EPOCH_URLS=("http://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_57.7")
+        EPOCH_URLS=("https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_57.7")
     elif [ "$date_flat" -le 20171231 ]; then
-        EPOCH_URLS=("http://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_92.9")
+        EPOCH_URLS=("https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_92.9")
     else
         # GLBy0.08/expt_93.0: try yearly sub-path first, then fall back to full aggregation
         EPOCH_URLS=(
-            "http://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0/ts3z/${YYYY}"
-            "http://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0"
+            "https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0/ts3z/${YYYY}"
+            "https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0"
         )
     fi
     BASE_URL="${EPOCH_URLS[0]}"
