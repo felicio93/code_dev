@@ -4,10 +4,11 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import numpy as np
 import imageio.v2 as imageio
+import pandas as pd
 
-# 1. Open the dataset lazily
+# 1. Open the dataset lazily, decoding CF times
 file_path = 'FINAL_TS_20180701_20181130.nc'
-ds = xr.open_dataset(file_path)
+ds = xr.open_dataset(file_path, decode_times=True)
 
 # 2. Select roughly one day per month (every 30th time index)
 ds_subset = ds.isel(time=slice(0, None, 30))
@@ -25,7 +26,7 @@ image_filenames = []
 for i in range(len(ds_bering.time)):
     current_time = ds_bering.time[i].values
     # Format time to a readable string (YYYY-MM-DD)
-    date_str = str(current_time)[:10]
+    date_str = pd.Timestamp(current_time).strftime('%Y-%m-%d')
     print(f"Processing and plotting {date_str}...")
 
     # Extract the 3D temperature block for this single timestep

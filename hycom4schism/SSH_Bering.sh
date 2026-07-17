@@ -76,8 +76,8 @@ while [ "$current_date" -le "$end_date_sec" ]; do
     # Step 2: Unpack the data
     ncpdq -O -U ssh_${date_flat}.nc ssh_test1.nc
 
-    # Step 3: Cast all variables to 32-bit floats
-    ncap2 -O -s 'time=float(time); lat=float(lat); lon=float(lon); surf_el=float(surf_el);' ssh_test1.nc ssh_test2.nc
+    # Step 3: Cast data variables to 32-bit floats (keep time as double to preserve precision)
+    ncap2 -O -s 'lat=float(lat); lon=float(lon); surf_el=float(surf_el);' ssh_test1.nc ssh_test2.nc
 
     # Step 4: Rename lat/lon to ylat/xlon
     ncrename -O -d lon,xlon -d lat,ylat -v lon,xlon -v lat,ylat ssh_test2.nc

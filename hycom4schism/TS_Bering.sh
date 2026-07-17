@@ -77,10 +77,13 @@ while [ "$current_date" -le "$end_date_sec" ]; do
     ncpdq -O -U ts3z_${date_flat}.nc ts3z_${date_flat}.nc
 
     # Calculate Potential Temperature using CDO
+    # NOTE: cdo adipot resets the time axis, so we append the correct time back
+    # from the original file immediately after.
     cdo adipot ts3z_${date_flat}.nc ts_test1.nc
+    ncks -O -A -v time ts3z_${date_flat}.nc ts_test1.nc
 
-    # Cast ALL variables (including depth) to 32-bit floats
-    ncap2 -O -s 'time=float(time); depth=float(depth); lat=float(lat); lon=float(lon); tho=float(tho); s=float(s);' ts_test1.nc ts_test2.nc
+    # Cast data variables to 32-bit floats (keep time as double to preserve precision)
+    ncap2 -O -s 'depth=float(depth); lat=float(lat); lon=float(lon); tho=float(tho); s=float(s);' ts_test1.nc ts_test2.nc
 
     # Rename dimensions and variables
     ncrename -O -d lon,xlon -d lat,ylat -v lon,xlon -v lat,ylat -v tho,temperature -v s,salinity ts_test2.nc

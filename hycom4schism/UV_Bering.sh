@@ -76,8 +76,8 @@ while [ "$current_date" -le "$end_date_sec" ]; do
     # Unpack the data
     ncpdq -O -U uv3z_${date_flat}.nc uv_test1.nc
 
-    # Cast ALL variables (including depth) to 32-bit floats
-    ncap2 -O -s 'time=float(time); depth=float(depth); lat=float(lat); lon=float(lon); water_u=float(water_u); water_v=float(water_v);' uv_test1.nc uv_test2.nc
+    # Cast data variables to 32-bit floats (keep time and depth as double to preserve precision)
+    ncap2 -O -s 'depth=float(depth); lat=float(lat); lon=float(lon); water_u=float(water_u); water_v=float(water_v);' uv_test1.nc uv_test2.nc
 
     # Rename lat/lon to ylat/xlon
     ncrename -O -d lon,xlon -d lat,ylat -v lon,xlon -v lat,ylat uv_test2.nc
