@@ -76,7 +76,12 @@ while [ "$current_date" -le "$end_date_sec" ]; do
     # Step 2: Unpack the data
     ncpdq -O -U ssh_${date_flat}.nc ssh_test1.nc
 
-    # Step 3: Cast data variables to 32-bit floats (keep time as double to preserve precision)
+    # Step 3: Fix time axis corrupted by ncpdq unpacking, then cast data variables to float32
+    # ncpdq -U unpacks the packed time coordinate using the aggregation's scale/offset,
+    # yielding the last timestamp in the source dataset rather than the requested day.
+    # We recompute the correct value (hours since 2000-01-01) from the date string.
+    HOURS_SINCE=$(( ( $(date -d "$date_hyphen" +%s) - $(date -d "2000-01-01" +%s) ) / 3600 ))
+    ncap2 -O -s "time(:)=${HOURS_SINCE}.0" ssh_test1.nc ssh_test1.nc
     ncap2 -O -s 'lat=float(lat); lon=float(lon); surf_el=float(surf_el);' ssh_test1.nc ssh_test2.nc
 
     # Step 4: Rename lat/lon to ylat/xlon

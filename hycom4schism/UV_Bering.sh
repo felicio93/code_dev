@@ -76,7 +76,12 @@ while [ "$current_date" -le "$end_date_sec" ]; do
     # Unpack the data
     ncpdq -O -U uv3z_${date_flat}.nc uv_test1.nc
 
-    # Cast data variables to 32-bit floats (keep time and depth as double to preserve precision)
+    # Fix time axis corrupted by ncpdq unpacking, then cast data variables to float32
+    # ncpdq -U unpacks the packed time coordinate using the aggregation's scale/offset,
+    # yielding the last timestamp in the source dataset rather than the requested day.
+    # We recompute the correct value (hours since 2000-01-01) from the date string.
+    HOURS_SINCE=$(( ( $(date -d "$date_hyphen" +%s) - $(date -d "2000-01-01" +%s) ) / 3600 ))
+    ncap2 -O -s "time(:)=${HOURS_SINCE}.0" uv_test1.nc uv_test1.nc
     ncap2 -O -s 'depth=float(depth); lat=float(lat); lon=float(lon); water_u=float(water_u); water_v=float(water_v);' uv_test1.nc uv_test2.nc
 
     # Rename lat/lon to ylat/xlon
