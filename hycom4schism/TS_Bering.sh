@@ -18,55 +18,59 @@ while [ "$current_date" -le "$end_date_sec" ]; do
     
     date_hyphen=$(date -d "$current_date" +%Y-%m-%d)
     date_flat=$current_date
-    YYYY=${date_hyphen:0:4}
     echo "Processing $date_hyphen..."
     
-    # 3. Strict Date-Based Epoch Mapping
+    # 3. Date-Based Epoch Mapping (GOFS 3.1 experiment sequence)
+    # Sequence: expt_57.2 -> expt_92.8 -> expt_57.7 -> expt_92.9 -> expt_93.0
+    # Source: https://www.hycom.org/dataserver/gofs-3pt1/analysis
+    #
     # GLBv0.08 epochs (pre-2018): single aggregated file, no variable sub-paths.
-    # GLBy0.08/expt_93.0 (2018+): split by variable and year -> /ts3z/YYYY
+    # GLBv0.08/expt_93.0: 2018-01-01 to 2018-12-03, variable sub-paths (/ts3z, etc.)
+    # GLBy0.08/expt_93.0: 2018-12-04 to present (finer lat resolution), variable sub-paths
+    #
+    # IMPORTANT: Do NOT use yearly sub-paths (e.g. /ts3z/2018) -- they contain only
+    # partial date ranges and the time filter will silently return wrong data.
+    # Always use the full variable-level aggregation (e.g. /ts3z).
+    #
     # NOTE: Run these scripts from the DTN node (hercules-dtn) which has external internet access.
     if [ "$date_flat" -le 20170131 ]; then
-        EPOCH_URLS=("https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_57.2")
+        URL="https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_57.2"
     elif [ "$date_flat" -le 20170531 ]; then
-        EPOCH_URLS=("https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_92.8")
+        URL="https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_92.8"
     elif [ "$date_flat" -le 20170930 ]; then
-        EPOCH_URLS=("https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_57.7")
+        URL="https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_57.7"
     elif [ "$date_flat" -le 20171231 ]; then
-        EPOCH_URLS=("https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_92.9")
+        URL="https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_92.9"
+    elif [ "$date_flat" -le 20181203 ]; then
+        URL="https://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_93.0/ts3z"
     else
-        # GLBy0.08/expt_93.0: try yearly sub-path first, then fall back to full aggregation
-        EPOCH_URLS=(
-            "https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0/ts3z/${YYYY}"
-            "https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0"
-        )
+        URL="https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0/ts3z"
     fi
-    BASE_URL="${EPOCH_URLS[0]}"
+    BASE_URL="${URL}"
     SUCCESS=0
-    
-    for URL in "${EPOCH_URLS[@]}"; do
-        # ATTEMPT A: Try Modern Positive Longitudes (0 to 360 grid)
-        ncks -O -d lon,150.,225. -d lat,45.,78. -d time,"$date_hyphen" \
-             -v water_temp,salinity "$URL" ts3z_${date_flat}.nc 2>/dev/null
-             
-        if [ $? -eq 0 ]; then
-            echo "  -> Found data in $URL (0-360 grid)"
-            SUCCESS=1
-            break
-        fi
 
+    # ATTEMPT A: Try Modern Positive Longitudes (0 to 360 grid)
+    ncks -O -d lon,150.,225. -d lat,45.,78. -d time,"$date_hyphen" \
+         -v water_temp,salinity "$URL" ts3z_${date_flat}.nc 2>/dev/null
+
+    if [ $? -eq 0 ]; then
+        echo "  -> Found data in $URL (0-360 grid)"
+        SUCCESS=1
+    fi
+
+    if [ $SUCCESS -eq 0 ]; then
         # ATTEMPT B: Try Legacy Negative Longitudes (-180 to 180 grid)
         ncks -O -d lat,45.,78. -d time,"$date_hyphen" \
              -v water_temp,salinity "$URL" temp_global_ts.nc 2>/dev/null
-             
+
         if [ $? -eq 0 ]; then
             echo "  -> Found data in $URL (-180 to 180 grid). Rectifying longitudes..."
             ncap2 -O -s 'where(lon<0) lon=lon+360' temp_global_ts.nc temp_pos_ts.nc
             ncks -O -d lon,150.,225. temp_pos_ts.nc ts3z_${date_flat}.nc
             SUCCESS=1
             rm temp_global_ts.nc temp_pos_ts.nc
-            break
         fi
-    done
+    fi
     
     if [ $SUCCESS -eq 0 ]; then
         echo "ERROR: Could not find data for $date_hyphen in epoch $BASE_URL!"
