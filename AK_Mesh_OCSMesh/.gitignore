@@ -1,0 +1,14 @@
+logs/*
+!logs/.gitkeep
+results/
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.qmd
+*.tif
+*.2dm
+*.gr3
+__pycache__/
+*.swp
