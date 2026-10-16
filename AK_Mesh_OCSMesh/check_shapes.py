@@ -38,7 +38,7 @@ args = ap.parse_args()
 SHAPES = {
     "domain": "AKdomain_20261014_360.shp",
     "shelf_150": "150m_contour_360.shp",
-    "shelf_200": "200m_contour_360.shp",
+    "below_200": "below_200m_contour_360.shp",
     "bering": "beringsea_360.shp",
     "center": "coarse_ocean_center_360.shp",
     "south": "coarse_ocean_south_360.shp",

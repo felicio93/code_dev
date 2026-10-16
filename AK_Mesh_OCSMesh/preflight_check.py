@@ -16,7 +16,7 @@ DATA = Path(sys.argv[1] if len(sys.argv) > 1 else
             "/gpfs/f6/nos-surge/scratch/Felicio.Cassalho/OCSMesh_MPI/"
             "AK_LargeDomain_Mesh/2026_10_15")
 ORIG = Path(sys.argv[2]) if len(sys.argv) > 2 else DATA / "GEBCO_2026.tif"
-SHAPES = ["AKdomain_20261014_360", "150m_contour_360", "200m_contour_360",
+SHAPES = ["AKdomain_20261014_360", "150m_contour_360", "below_200m_contour_360",
           "beringsea_360", "coarse_ocean_center_360",
           "coarse_ocean_south_360", "coarse_ocean_north_360"]
 RASTER = DATA / "GEBCO_2026_360.tif"

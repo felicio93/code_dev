@@ -47,6 +47,7 @@ _logger = logging.getLogger("AK_Mesh")
 # --------------------------------------------------------------------------
 DOMAIN_SHP = "AKdomain_20261014_360.shp"
 SHELF_150_SHP = "150m_contour_360.shp"
+BELOW_200_SHP = "below_200m_contour_360.shp"
 BERING_SHP = "beringsea_360.shp"
 COARSE_CENTER_SHP = "coarse_ocean_center_360.shp"
 COARSE_SOUTH_SHP = "coarse_ocean_south_360.shp"
@@ -64,35 +65,43 @@ HMAX = 3500.0
 #       -> gradient dh/dd = r*T ; reaches H after d = (H/T - 1) / r
 #   add_region_constraint(value=V, rate=r, 'min'): bound(d) = V * (1 - r*d)
 #       -> the "no finer than V" bound fades out with distance d from the region
-PATCH_RATE = 1.0e-5       # patches: 1500 m -> 2500 m over ~67 km (1.5 % gradient)
-CONSTRAINT_RATE = 1.0e-4  # region constraints: bound fades over ~3-4 km
+RATE = 1.0e-5           # shelf patch and all region constraints
+BERING_RATE = 5.0e-6    # Bering Sea patch
+#   patch  1500 m -> 2500 m over ~67 km   (1.5 % gradient)
+#   region 2500 m -> 1500 m over ~40 km ; 3500 m -> 2500 m over ~29 km
 
 # Building blocks.
 #   patch  -> hfun.add_patch(shape, target_size, expansion_rate)
 #   region -> hfun.add_region_constraint(value, shape, rate, value_type='min')
+# Region constraints are "no finer than value" (min) constraints. They only
+# ever raise sizes, so where regions overlap the LARGER value wins; the
+# coarse_* (3500 m) regions therefore take priority over below_200 (2500 m).
+# Within a case they are also added in the order listed in CASES.
 REFINEMENTS = {
     "shelf_150":   dict(kind="patch", shp=SHELF_150_SHP,
-                        target_size=1500.0, expansion_rate=PATCH_RATE),
-    # Whole-domain patch: 2500 m everywhere; nothing outside to expand into.
-    "domain_2500": dict(kind="patch", shp=DOMAIN_SHP,
-                        target_size=2500.0, expansion_rate=None),
-    # Keeps the fine shelf refinement out of the Bering Sea.
-    "bering_2500": dict(kind="region", shp=BERING_SHP,
-                        value=2500.0, rate=CONSTRAINT_RATE),
+                        target_size=1500.0, expansion_rate=RATE),
+    # Keeps the shelf-scale resolution out of the deep ocean (below 200 m contour).
+    "below_200":   dict(kind="region", shp=BELOW_200_SHP,
+                        value=2500.0, rate=RATE),
+    # Bering Sea patch: 2500 m inside, growing slowly outward (2500 -> 3500 m
+    # over ~80 km). NOTE: patches combine with min(), so where this polygon
+    # overlaps the 1500 m shelf patch the finer 1500 m value is kept.
+    "bering_2500": dict(kind="patch", shp=BERING_SHP,
+                        target_size=2500.0, expansion_rate=BERING_RATE),
     "coarse_center": dict(kind="region", shp=COARSE_CENTER_SHP,
-                          value=3500.0, rate=CONSTRAINT_RATE),
+                          value=3500.0, rate=RATE),
     "coarse_south":  dict(kind="region", shp=COARSE_SOUTH_SHP,
-                          value=3500.0, rate=CONSTRAINT_RATE),
+                          value=3500.0, rate=RATE),
     "coarse_north":  dict(kind="region", shp=COARSE_NORTH_SHP,
-                          value=3500.0, rate=CONSTRAINT_RATE),
+                          value=3500.0, rate=RATE),
 }
 
 # One mesh per case, built up step by step.
 CASES = {
     "m1_shelf150": ["shelf_150"],
-    "m2_domain2500": ["domain_2500"],
-    "m3_shelf150_domain2500": ["shelf_150", "domain_2500", "bering_2500"],
-    "m4_plus_coarse": ["shelf_150", "domain_2500", "bering_2500",
+    "m2_plus_below200": ["shelf_150", "below_200"],
+    "m3_plus_bering": ["shelf_150", "below_200", "bering_2500"],
+    "m4_plus_coarse": ["shelf_150", "below_200", "bering_2500",
                        "coarse_center", "coarse_south", "coarse_north"],
 }
 

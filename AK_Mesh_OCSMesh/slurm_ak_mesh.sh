@@ -60,7 +60,7 @@ echo "  Date   : $(date)"
 echo "============================================================="
 
 # Fail early if an input is missing
-for f in AKdomain_20261014_360.shp 150m_contour_360.shp 200m_contour_360.shp \
+for f in AKdomain_20261014_360.shp 150m_contour_360.shp below_200m_contour_360.shp \
          beringsea_360.shp coarse_ocean_center_360.shp coarse_ocean_south_360.shp \
          coarse_ocean_north_360.shp GEBCO_2026_360.tif; do
     [ -f "${DATA_DIR}/${f}" ] || { echo "ERROR: missing ${DATA_DIR}/${f}"; exit 1; }
