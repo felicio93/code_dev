@@ -60,11 +60,12 @@ echo "  Date   : $(date)"
 echo "============================================================="
 
 # Fail early if an input is missing
-for f in AKdomain_20261014_360.shp 150m_contour_360.shp below_200m_contour_360.shp \
-         beringsea_360.shp coarse_ocean_center_360.shp coarse_ocean_south_360.shp \
-         coarse_ocean_north_360.shp GEBCO_2026_360.tif; do
+for f in AKdomain_20261014.shp 150m_contour.shp beringsea.shp \
+         coarse_ocean_center.shp coarse_ocean_south.shp coarse_ocean_north.shp; do
     [ -f "${DATA_DIR}/${f}" ] || { echo "ERROR: missing ${DATA_DIR}/${f}"; exit 1; }
 done
+ls "${DATA_DIR}"/below_150*.shp >/dev/null 2>&1 || { echo "ERROR: no below_150*.shp in ${DATA_DIR}"; exit 1; }
+[ -f "${DATA_DIR}/GEBCO_2026.tif" ] || [ -f "${DATA_DIR}/GEBCO_2026_360.tif" ] || { echo "ERROR: no GEBCO raster in ${DATA_DIR}"; exit 1; }
 
 srun --ntasks=1 --cpus-per-task="${SLURM_CPUS_PER_TASK:-1}" --cpu-bind=cores \
     python build_ak_mesh.py \
@@ -73,6 +74,7 @@ srun --ntasks=1 --cpus-per-task="${SLURM_CPUS_PER_TASK:-1}" --cpu-bind=cores \
         --method   "${METHOD}" \
         --engine   "${ENGINE}" \
         --nprocs   "${NPROCS}" \
-        --case     "${CASE}"
+        --case     "${CASE}" \
+        --save-shifted "${OUT_DIR}/shapes_360"
 
 echo "=== DONE $(date) ==="

@@ -22,6 +22,8 @@ from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import build_ak_mesh as B  # noqa: E402
 from pyproj import CRS
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.validation import explain_validity, make_valid
@@ -36,13 +38,13 @@ ap.add_argument("--skip-resample", action="store_true")
 args = ap.parse_args()
 
 SHAPES = {
-    "domain": "AKdomain_20261014_360.shp",
-    "shelf_150": "150m_contour_360.shp",
-    "below_200": "below_200m_contour_360.shp",
-    "bering": "beringsea_360.shp",
-    "center": "coarse_ocean_center_360.shp",
-    "south": "coarse_ocean_south_360.shp",
-    "north": "coarse_ocean_north_360.shp",
+    "domain": B.DOMAIN_SHP,
+    "shelf_150": B.SHELF_150_SHP,
+    "below_150": B.BELOW_150_SHP,
+    "bering": B.BERING_SHP,
+    "center": B.COARSE_CENTER_SHP,
+    "south": B.COARSE_SOUTH_SHP,
+    "north": B.COARSE_NORTH_SHP,
 }
 METRIC = CRS.from_epsg(3338)
 SLIVER_M2 = 1.0e4          # polygons smaller than 0.01 km^2 are flagged
@@ -92,7 +94,10 @@ def n_nonpoly(g):
 
 healed, healed_m = {}, {}
 for name, fn in SHAPES.items():
-    path = args.data_dir / fn
+    try:
+        path = B.resolve_shp(args.data_dir, fn)
+    except FileNotFoundError:
+        path = args.data_dir / fn
     print(f"\n== {name}  ({fn})")
     if not path.is_file():
         fail("file missing")
@@ -101,6 +106,7 @@ for name, fn in SHAPES.items():
     if gdf.crs is None:
         warn("no CRS in file; assuming EPSG:4326")
         gdf = gdf.set_crs("EPSG:4326")
+    gdf["geometry"] = B.shift_to_360(gdf.geometry.values)   # same shift as the mesh script
     print(f"   {len(gdf)} feature(s), types={sorted(gdf.geometry.geom_type.unique())}, "
           f"bounds={np.round(gdf.total_bounds, 3).tolist()}")
 

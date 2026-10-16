@@ -37,11 +37,11 @@ data = args.data_dir.resolve()
 refine = B.CASES[args.case]
 print(f"case {args.case}: {refine}")
 
-domain, dcrs = B.load_shape(data / B.DOMAIN_SHP)
-shapes = {k: B.load_shape(data / B.REFINEMENTS[k]["shp"])[0] for k in refine}
+domain, dcrs = B.load_shape(B.resolve_shp(data, B.DOMAIN_SHP))
+shapes = {k: B.load_shape(B.resolve_shp(data, B.REFINEMENTS[k]["shp"]))[0] for k in refine}
 
 t0 = time.time()
-hfun = Hfun([Raster(data / B.DEM_GEBCO)], hmin=args.hmin, hmax=args.hmax,
+hfun = Hfun([Raster(B.ensure_gebco_360(data))], hmin=args.hmin, hmax=args.hmax,
             nprocs=args.nprocs, base_shape=domain, base_shape_crs=dcrs,
             method=args.method)
 if args.nprocs > 1:

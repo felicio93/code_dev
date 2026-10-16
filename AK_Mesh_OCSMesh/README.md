@@ -13,14 +13,19 @@ dateline. Output longitudes are **0-360** (0 = Greenwich, 180 = Bering Sea,
 ## Inputs
 In `DATA_DIR` (default
 `/gpfs/f6/nos-surge/scratch/Felicio.Cassalho/OCSMesh_MPI/AK_LargeDomain_Mesh/2026_10_15`),
-all in 0-360 longitude:
-`AKdomain_20261014_360.shp`, `150m_contour_360.shp`,
-`below_200m_contour_360.shp`, `beringsea_360.shp`, `coarse_ocean_{center,south,north}_360.shp`,
-`GEBCO_2026_360.tif`.
+the **original** files, no manual shifting needed:
+`AKdomain_20261014.shp`, `150m_contour.shp`, `below_150m_contour.shp`
+(any single `below_150*.shp` is accepted), `beringsea.shp`,
+`coarse_ocean_{center,south,north}.shp`, `GEBCO_2026.tif`.
 
-Before the first run, check the 360 raster really was rolled (not just
-re-georeferenced): sample the same Bering Sea point in the original at
-170 W and in the 360 file at 190 E; depths must match.
+`build_ak_mesh.py` shifts them to 0-360 on every run: shapefile vertices with
+lon < 0 get +360 in memory (already-0-360 files pass through unchanged), so you
+can edit a polygon and resubmit. The shifted shapes are saved to
+`<OUT_DIR>/shapes_360/` to open in QGIS. The GEBCO raster is rolled once into
+`GEBCO_2026_360.tif` next to the original (a pure column permutation, no
+resampling) and reused while newer than `GEBCO_2026.tif`; if the original is
+already 0-360 it is used as is. `--force-raster` rebuilds it. An existing
+`GEBCO_2026_360.tif` that is newer than the original is trusted as is.
 
 ## Run
 ```bash
@@ -36,12 +41,12 @@ Outputs go to `OUT_DIR` (default `.../AK_LargeDomain_Mesh/results/<jobid>/`):
 ## Mesh cases (one mesh per refinement step)
 | Case | Refinements |
 |---|---|
-| `m1_shelf150` | 1500 m patch on the 150 m contour polygon, rate 1e-5 |
-| `m2_plus_below200` | m1 + "no finer than 2500 m" constraint in `below_200m_contour` |
+| `m1_shelf150` | 1500 m patch on the 150 m contour polygon, rate 1e-6 |
+| `m2_plus_below150` | m1 + "no finer than 2500 m" constraint in the `below_150` polygon |
 | `m3_plus_bering` | m2 + 2500 m **patch** on the Bering Sea polygon, rate 5e-6 (patches take the min, so it cannot coarsen the 1500 m shelf patch) |
-| `m4_plus_coarse` | m3 + "no finer than 3500 m" in the center, south and north regions (these win over `below_200m` where they overlap) |
+| `m4_plus_coarse` | m3 + "no finer than 3500 m" in the center, south and north regions (these win over `below_150` where they overlap) |
 
-Rates: 1e-5 for the shelf patch and all constraints, 5e-6 for the Bering patch.
+Rates: 1e-6 for the shelf patch, 1e-5 for all constraints, 5e-6 for the Bering patch.
 
 ```bash
 ./submit_cases.sh                       # all four, METHOD=fast (~30 min each)
@@ -51,7 +56,7 @@ sbatch --export=ALL,CASE=m1_shelf150,METHOD=fast slurm_ak_mesh.sh   # a single c
 Outputs: `results/<case>_<method>_<jobid>/AK_LARGEDOMAIN_<case>.{2dm,gr3}`.
 
 Rate units (1/m): patch `size(d) = T*(1 + r*d)`; region `min` constraint
-`bound(d) = V*(1 - r*d)`. Tune `RATE` (1e-5) / `BERING_RATE` (5e-6) in `build_ak_mesh.py`.
+`bound(d) = V*(1 - r*d)`. Tune `SHELF_RATE` (1e-6) / `RATE` (1e-5) / `BERING_RATE` (5e-6) in `build_ak_mesh.py`.
 
 ## OCSMesh library patches (apply to the OCSMesh `dev` checkout on Gaea)
 ```bash

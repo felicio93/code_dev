@@ -18,6 +18,8 @@ import sys
 from pathlib import Path
 
 import geopandas as gpd
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import build_ak_mesh as B  # noqa: E402
 import numpy as np
 import rasterio
 from pyproj import CRS, Transformer
@@ -50,15 +52,8 @@ def verdict(ok, msg):
 
 
 def load(fn):
-    gdf = gpd.read_file(D / fn)
-    if gdf.crs is None:
-        gdf = gdf.set_crs(4326)
-    polys = []
-    for g in gdf.geometry.make_valid():
-        polys += [g] if isinstance(g, Polygon) else (
-            list(g.geoms) if hasattr(g, "geoms") else [])
-    polys = [p for p in polys if isinstance(p, Polygon)]
-    return MultiPolygon(polys), gdf.crs
+    shape, crs = B.load_shape(B.resolve_shp(D, fn))
+    return (shape if shape.geom_type == "MultiPolygon" else MultiPolygon([shape])), crs
 
 
 # ---------------------------------------------------------------- T1
@@ -76,7 +71,7 @@ print(f"      NOTE: inverse returns {lon_back:.1f} for lon 190 -> anything that 
       "converts back to 4326 loses the 0-360 convention")
 
 # ---------------------------------------------------------------- grid
-domain, _ = load("AKdomain_20261014_360.shp")
+domain, _ = load(B.DOMAIN_SHP)
 dom_m = shp_transform(fwd.transform, domain)
 x0, y0, x1, y1 = dom_m.bounds
 res = args.res
@@ -95,7 +90,7 @@ print(f"\nGrid {W}x{H} @ {res/1e3:.0f} km; west cells {int(west.sum())}, "
 print("\nT2  rasterio.warp.reproject of GEBCO_2026_360.tif -> 3338 grid")
 NODATA = -99999.0
 warped = np.full((H, W), NODATA, dtype=np.float32)
-with rasterio.open(D / "GEBCO_2026_360.tif") as src:
+with rasterio.open(B.ensure_gebco_360(D)) as src:
     print(f"      source: crs={src.crs} bounds={tuple(round(b, 2) for b in src.bounds)}")
     reproject(source=rasterio.band(src, 1), destination=warped,
               dst_transform=tfm, dst_crs=C3338, resampling=Resampling.nearest,
@@ -120,7 +115,7 @@ for name, m in (("west", west), ("east", east)):
 
 # ---------------------------------------------------------------- T3
 print("\nT3  patch mask (150 m shelf polygon, as add_patch rasterizes it)")
-shelf, _ = load("150m_contour_360.shp")
+shelf, _ = load(B.SHELF_150_SHP)
 shelf_m = shp_transform(fwd.transform, shelf)
 mask_patch = features.geometry_mask(shelf_m.geoms, out_shape=(H, W),
                                     transform=tfm, all_touched=True, invert=True)
@@ -138,7 +133,7 @@ for name, m in (("west", west), ("east", east)):
 print("\nT4  RegionConstraint.apply on the Bering polygon")
 try:
     from ocsmesh.features.constraint import RegionConstraint
-    bering, bcrs = load("beringsea_360.shp")
+    bering, bcrs = load(B.BERING_SHP)
     rc = RegionConstraint(value=2500.0, shape=bering, crs=bcrs,
                           value_type="min", rate=None)
     old = np.full((H, W), 1500.0)

@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 """Build the Alaska large-domain mesh with OCSMesh (dateline-safe, 0-360 lon).
 
-All inputs (domain/refinement shapefiles and the GEBCO raster) must already be
-in the continuous 0-360 longitude convention (``*_360.shp`` / ``*_360.tif``).
-The output mesh is written in EPSG:4326 with longitudes in [0, 360):
+The inputs are the ORIGINAL files (longitudes -180..180, e.g. ``150m_contour.shp``
+and ``GEBCO_2026.tif``). This script shifts them to the continuous 0-360
+convention itself: shapefile vertices with lon < 0 get +360 in memory on every
+run (so edited polygons just work), and the GEBCO raster is rolled once into
+``GEBCO_2026_360.tif`` (reused while it is newer than the original; delete it
+or pass --force-raster to rebuild). Inputs already in 0-360 pass through
+unchanged. The output mesh is written in EPSG:4326 with longitudes in [0, 360):
 0 = Greenwich, 180 = Bering Sea (dateline), 360 = Greenwich again.
 
 How the dateline is handled
@@ -24,12 +28,16 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import time
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
+import rasterio
+import shapely
 from pyproj import CRS
+from rasterio.windows import Window
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.ops import unary_union
 
@@ -45,14 +53,16 @@ _logger = logging.getLogger("AK_Mesh")
 # --------------------------------------------------------------------------
 # Inputs (file names inside --data-dir)
 # --------------------------------------------------------------------------
-DOMAIN_SHP = "AKdomain_20261014_360.shp"
-SHELF_150_SHP = "150m_contour_360.shp"
-BELOW_200_SHP = "below_200m_contour_360.shp"
-BERING_SHP = "beringsea_360.shp"
-COARSE_CENTER_SHP = "coarse_ocean_center_360.shp"
-COARSE_SOUTH_SHP = "coarse_ocean_south_360.shp"
-COARSE_NORTH_SHP = "coarse_ocean_north_360.shp"
-DEM_GEBCO = "GEBCO_2026_360.tif"
+# Original (-180..180) files; they are shifted to 0-360 at run time.
+DOMAIN_SHP = "AKdomain_20261014.shp"
+SHELF_150_SHP = "150m_contour.shp"
+BELOW_150_SHP = "below_150m_contour.shp"   # falls back to any below_150*.shp
+BERING_SHP = "beringsea.shp"
+COARSE_CENTER_SHP = "coarse_ocean_center.shp"
+COARSE_SOUTH_SHP = "coarse_ocean_south.shp"
+COARSE_NORTH_SHP = "coarse_ocean_north.shp"
+DEM_GEBCO_SRC = "GEBCO_2026.tif"
+DEM_GEBCO = "GEBCO_2026_360.tif"           # derived (rolled) raster
 
 # --------------------------------------------------------------------------
 # Mesh sizing recipe (meters)
@@ -65,9 +75,10 @@ HMAX = 3500.0
 #       -> gradient dh/dd = r*T ; reaches H after d = (H/T - 1) / r
 #   add_region_constraint(value=V, rate=r, 'min'): bound(d) = V * (1 - r*d)
 #       -> the "no finer than V" bound fades out with distance d from the region
-RATE = 1.0e-5           # shelf patch and all region constraints
+RATE = 1.0e-5           # all region constraints
+SHELF_RATE = 1.0e-6     # 150 m contour shelf patch
 BERING_RATE = 5.0e-6    # Bering Sea patch
-#   patch  1500 m -> 2500 m over ~67 km   (1.5 % gradient)
+#   shelf  1500 m -> 2500 m over ~670 km  (0.15 % gradient)
 #   region 2500 m -> 1500 m over ~40 km ; 3500 m -> 2500 m over ~29 km
 
 # Building blocks.
@@ -75,13 +86,13 @@ BERING_RATE = 5.0e-6    # Bering Sea patch
 #   region -> hfun.add_region_constraint(value, shape, rate, value_type='min')
 # Region constraints are "no finer than value" (min) constraints. They only
 # ever raise sizes, so where regions overlap the LARGER value wins; the
-# coarse_* (3500 m) regions therefore take priority over below_200 (2500 m).
+# coarse_* (3500 m) regions therefore take priority over below_150 (2500 m).
 # Within a case they are also added in the order listed in CASES.
 REFINEMENTS = {
     "shelf_150":   dict(kind="patch", shp=SHELF_150_SHP,
-                        target_size=1500.0, expansion_rate=RATE),
-    # Keeps the shelf-scale resolution out of the deep ocean (below 200 m contour).
-    "below_200":   dict(kind="region", shp=BELOW_200_SHP,
+                        target_size=1500.0, expansion_rate=SHELF_RATE),
+    # Keeps the shelf-scale resolution out of the deep ocean (below 150 m contour).
+    "below_150":   dict(kind="region", shp=BELOW_150_SHP,
                         value=2500.0, rate=RATE),
     # Bering Sea patch: 2500 m inside, growing slowly outward (2500 -> 3500 m
     # over ~80 km). NOTE: patches combine with min(), so where this polygon
@@ -99,9 +110,9 @@ REFINEMENTS = {
 # One mesh per case, built up step by step.
 CASES = {
     "m1_shelf150": ["shelf_150"],
-    "m2_plus_below200": ["shelf_150", "below_200"],
-    "m3_plus_bering": ["shelf_150", "below_200", "bering_2500"],
-    "m4_plus_coarse": ["shelf_150", "below_200", "bering_2500",
+    "m2_plus_below150": ["shelf_150", "below_150"],
+    "m3_plus_bering": ["shelf_150", "below_150", "bering_2500"],
+    "m4_plus_coarse": ["shelf_150", "below_150", "bering_2500",
                        "coarse_center", "coarse_south", "coarse_north"],
 }
 
@@ -139,14 +150,39 @@ def wrap_lon_360(mesh) -> None:
 # --------------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------------
+def resolve_shp(data: Path, name: str) -> Path:
+    """data/name, or (for below_150) any data/below_150*.shp if that is missing."""
+    p = data / name
+    if p.is_file():
+        return p
+    if name.startswith("below_150"):
+        hits = sorted(data.glob("below_150*.shp"))
+        if len(hits) == 1:
+            _logger.info("  %s not found, using %s", name, hits[0].name)
+            return hits[0]
+    raise FileNotFoundError(p)
+
+
+def shift_to_360(geoms):
+    """Add 360 to every vertex longitude < 0 (vectorised; 0-360 input is unchanged)."""
+    def _f(c):
+        c = c.copy()
+        c[c[:, 0] < 0, 0] += 360.0
+        return c
+    return shapely.transform(np.asarray(geoms, dtype=object), _f)
+
+
 def load_shape(shp_path: Path):
-    """Read a 0-360 shapefile, heal it and return (Polygon|MultiPolygon, crs)."""
+    """Read a shapefile, shift it to 0-360, heal it; return (Polygon|MultiPolygon, crs)."""
     gdf = gpd.read_file(shp_path)
     if gdf.crs is None:
         gdf = gdf.set_crs("EPSG:4326")
+    if not gdf.crs.is_geographic:
+        gdf = gdf.to_crs("EPSG:4326")
     gdf = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].copy()
     if gdf.empty:
         raise ValueError(f"No polygon geometry in {shp_path}")
+    gdf["geometry"] = shift_to_360(gdf.geometry.values)
     gdf["geometry"] = gdf.geometry.make_valid().buffer(0)
     shape = gdf.union_all().buffer(0)
     if shape.geom_type == "GeometryCollection":
@@ -156,13 +192,64 @@ def load_shape(shp_path: Path):
     return shape, gdf.crs
 
 
+def ensure_gebco_360(data: Path, force: bool = False) -> Path:
+    """Return a 0-360 GEBCO raster, rolling the original (-180..180) if needed.
+
+    The roll is a pure column permutation (no resampling): columns with
+    lon >= 0 move to the front, columns with lon < 0 follow, and the origin
+    becomes lon 0. Written in row blocks (low memory), atomically.
+    """
+    src_path, dst = data / DEM_GEBCO_SRC, data / DEM_GEBCO
+    if not src_path.is_file():
+        if dst.is_file():
+            _logger.warning("  %s missing; using existing %s", DEM_GEBCO_SRC, DEM_GEBCO)
+            return dst
+        raise FileNotFoundError(src_path)
+    if (dst.is_file() and not force
+            and dst.stat().st_mtime >= src_path.stat().st_mtime):
+        _logger.info("  reusing %s (newer than %s)", dst.name, src_path.name)
+        return dst
+    with rasterio.open(src_path) as src:
+        b = src.bounds
+        if b.left >= 0:
+            _logger.info("  %s already 0-360; used as is", src_path.name)
+            return src_path
+        res = src.transform.a
+        n_neg = int(round(-b.left / res))
+        if (abs(b.left + 180) > res or abs(b.right - 180) > res
+                or abs(src.width * res - 360) > res or n_neg >= src.width):
+            raise ValueError(f"{src_path.name} is not a global -180..180 raster "
+                             f"(bounds {tuple(b)}); cannot roll it")
+        _logger.info("  rolling %s -> %s (%d x %d, %d columns moved)",
+                     src_path.name, dst.name, src.width, src.height, n_neg)
+        prof = src.profile.copy()
+        prof.update(transform=rasterio.Affine(res, 0, b.left + n_neg * res,
+                                              0, src.transform.e, b.top),
+                    tiled=True, blockxsize=512, blockysize=512,
+                    compress="deflate", BIGTIFF="IF_SAFER")
+        tmp = dst.with_name(f".{dst.name}.{os.getpid()}.tmp")
+        n_pos = src.width - n_neg
+        step = 512
+        try:
+            with rasterio.open(tmp, "w", **prof) as out:
+                for r0 in range(0, src.height, step):
+                    h = min(step, src.height - r0)
+                    for c0, c1, d0 in ((n_neg, src.width, 0), (0, n_neg, n_pos)):
+                        arr = src.read(window=Window(c0, r0, c1 - c0, h))
+                        out.write(arr, window=Window(d0, r0, c1 - c0, h))
+            os.replace(tmp, dst)
+        finally:
+            tmp.unlink(missing_ok=True)
+    return dst
+
+
 def check_0_360(name: str, shape) -> None:
     x0, _, x1, _ = shape.bounds
     _logger.info("  %-14s lon range %.3f .. %.3f", name, x0, x1)
     if x0 < 0 or x1 > 360:
         raise ValueError(
             f"{name} is not in the 0-360 convention (lon {x0:.2f}..{x1:.2f}). "
-            "Use the *_360 inputs."
+            "Shifting to 0-360 failed or input is not in lon/lat degrees."
         )
 
 
@@ -207,7 +294,11 @@ def mesh_summary(mesh) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--data-dir", type=Path, required=True,
-                    help="Directory with the *_360 shapefiles and GEBCO tif")
+                    help="Directory with the original shapefiles and GEBCO_2026.tif")
+    ap.add_argument("--force-raster", action="store_true",
+                    help="Rebuild GEBCO_2026_360.tif even if it looks up to date")
+    ap.add_argument("--save-shifted", type=Path, default=None,
+                    help="Also write the shifted (0-360) shapefiles here, for QGIS")
     ap.add_argument("--out-dir", type=Path, required=True)
     ap.add_argument("--case", choices=list(CASES), required=True,
                     help="Which mesh to build: "
@@ -237,11 +328,17 @@ def main() -> None:
     # 1. Shapes ---------------------------------------------------------
     _logger.info("Step 1: loading shapefiles from %s", data)
     t = time.time()
-    domain, domain_crs = load_shape(data / DOMAIN_SHP)
-    shapes = {k: load_shape(data / REFINEMENTS[k]["shp"])[0] for k in refine}
+    domain, domain_crs = load_shape(resolve_shp(data, DOMAIN_SHP))
+    shapes = {k: load_shape(resolve_shp(data, REFINEMENTS[k]["shp"]))[0]
+              for k in refine}
     check_0_360("domain", domain)
     for k, v in shapes.items():
         check_0_360(k, v)
+    if args.save_shifted:
+        args.save_shifted.mkdir(parents=True, exist_ok=True)
+        for k, v in {"domain": domain, **shapes}.items():
+            gpd.GeoSeries([v], crs=domain_crs).to_file(
+                args.save_shifted / f"{k}_360.shp")
     timings["load_shapes_s"] = time.time() - t
 
     # 2. Geometry -------------------------------------------------------
@@ -262,7 +359,7 @@ def main() -> None:
     _logger.info("Step 3: building Hfun (method=%s, nprocs=%d)",
                  args.method, args.nprocs)
     t = time.time()
-    rast = Raster(data / DEM_GEBCO)
+    rast = Raster(ensure_gebco_360(data, args.force_raster))
     _logger.info("  GEBCO bbox: %s  crs: %s", rast.get_bbox().bounds, rast.crs)
     hfun = Hfun(
         [rast],

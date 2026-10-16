@@ -16,9 +16,15 @@ DATA = Path(sys.argv[1] if len(sys.argv) > 1 else
             "/gpfs/f6/nos-surge/scratch/Felicio.Cassalho/OCSMesh_MPI/"
             "AK_LargeDomain_Mesh/2026_10_15")
 ORIG = Path(sys.argv[2]) if len(sys.argv) > 2 else DATA / "GEBCO_2026.tif"
-SHAPES = ["AKdomain_20261014_360", "150m_contour_360", "below_200m_contour_360",
-          "beringsea_360", "coarse_ocean_center_360",
-          "coarse_ocean_south_360", "coarse_ocean_north_360"]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import build_ak_mesh as B  # noqa: E402
+SHAPES = []
+for _n in (B.DOMAIN_SHP, B.SHELF_150_SHP, B.BELOW_150_SHP, B.BERING_SHP,
+           B.COARSE_CENTER_SHP, B.COARSE_SOUTH_SHP, B.COARSE_NORTH_SHP):
+    try:
+        SHAPES.append(B.resolve_shp(DATA, _n).stem)
+    except FileNotFoundError:
+        SHAPES.append(Path(_n).stem)
 RASTER = DATA / "GEBCO_2026_360.tif"
 
 fails = 0
@@ -68,12 +74,14 @@ for stem in SHAPES:
     for ext in (".shp", ".shx", ".dbf", ".prj"):
         p = DATA / (stem + ext)
         report(p.is_file(), f"exists {p.name}")
-report(RASTER.is_file(), f"exists {RASTER.name}")
+report((DATA / "GEBCO_2026.tif").is_file() or RASTER.is_file(),
+       "GEBCO_2026.tif (or an existing GEBCO_2026_360.tif) present")
 
 # 3. Shapefiles are 0-360 and WGS84 geographic --------------------------------
 try:
     for stem in SHAPES:
         gdf = gpd.read_file(DATA / (stem + ".shp"))
+        gdf["geometry"] = B.shift_to_360(gdf.geometry.values)   # as in the mesh script
         x0, y0, x1, y1 = gdf.total_bounds
         geographic = gdf.crs is not None and gdf.crs.is_geographic
         ok = geographic and x0 >= 0 and x1 <= 360 and -90 <= y0 and y1 <= 90
@@ -86,6 +94,9 @@ except Exception as exc:  # noqa: BLE001
 
 # 4. Raster is 0-360 AND data was rolled (not just re-georeferenced) ----------
 try:
+    if not RASTER.is_file():
+        print("[WARN] GEBCO_2026_360.tif not built yet (build_ak_mesh.py creates it); skipping raster checks")
+        raise FileNotFoundError("skip")
     import numpy as np
     import rasterio
     with rasterio.open(RASTER) as r360:
@@ -118,6 +129,10 @@ try:
                        f"raster values match original at {n_cmp} sample points")
         else:
             print(f"[WARN] original raster {ORIG} not found; skipped value check")
+except FileNotFoundError:
+    pass
+except FileNotFoundError as exc:
+    print(f"[WARN] raster check skipped: {exc} (build_ak_mesh.py creates GEBCO_2026_360.tif)")
 except Exception as exc:  # noqa: BLE001
     report(False, f"raster checks: {exc}")
 
