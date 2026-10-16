@@ -38,8 +38,8 @@ Outputs go to `OUT_DIR` (default `.../AK_LargeDomain_Mesh/results/<jobid>/`):
 |---|---|
 | `m1_shelf150` | 1500 m patch on the 150 m contour polygon, rate 1e-5 |
 | `m2_domain2500` | 2500 m patch on the domain polygon (2500 m everywhere) |
-| `m3_shelf150_domain2500` | both of the above (patches combine with `min`) |
-| `m4_plus_coarse` | m3 + "no finer than 3500 m" constraints in the center, south and north regions (rate 1e-5) |
+| `m3_shelf150_domain2500` | both patches + a "no finer than 2500 m" constraint in the Bering Sea polygon (keeps the shelf refinement out of it) |
+| `m4_plus_coarse` | m3 + "no finer than 3500 m" constraints in the center, south and north regions (rate 1e-4) |
 
 ```bash
 ./submit_cases.sh                       # all four, METHOD=fast (~30 min each)
@@ -49,7 +49,23 @@ sbatch --export=ALL,CASE=m1_shelf150,METHOD=fast slurm_ak_mesh.sh   # a single c
 Outputs: `results/<case>_<method>_<jobid>/AK_LARGEDOMAIN_<case>.{2dm,gr3}`.
 
 Rate units (1/m): patch `size(d) = T*(1 + r*d)`; region `min` constraint
-`bound(d) = V*(1 - r*d)`. Tune `RATE` in `build_ak_mesh.py`.
+`bound(d) = V*(1 - r*d)`. Tune `PATCH_RATE` (1e-5) / `CONSTRAINT_RATE` (1e-4) in `build_ak_mesh.py`.
+
+## OCSMesh library patches (apply to the OCSMesh `dev` checkout on Gaea)
+```bash
+cd <OCSMesh checkout>
+for p in gmsh_polygonal_only constraint_lon360 hfun_lon360; do
+  git apply --check <path>/AK_Mesh_OCSMesh/$p.patch && git apply <path>/AK_Mesh_OCSMesh/$p.patch
+done
+```
+- `gmsh_polygonal_only.patch`: drop non-polygon parts (GeometryCollection) before Gmsh.
+- `constraint_lon360.patch`: `RegionConstraint` wraps points to 0-360 (constraints
+  were ignored east of 180).
+- `hfun_lon360.patch`: `fast` size function no longer clips away everything east of 180.
+
+## Local testing
+`diagnose_dateline.py` (seconds) and `local_hfun_check.py` (size function only, plot)
+run on a laptop with a conda env from OCSMesh's `environment.yml` and a coarsened DEM.
 
 ## How the dateline is handled
 OCSMesh's `utils.estimate_bounds_utm` returns `None` for any longitude
