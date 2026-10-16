@@ -33,6 +33,24 @@ squeue --me -M c6
 Outputs go to `OUT_DIR` (default `.../AK_LargeDomain_Mesh/results/<jobid>/`):
 `AK_LARGEDOMAIN.2dm`, `AK_LARGEDOMAIN.gr3`, `AK_LARGEDOMAIN_summary.json`.
 
+## Mesh cases (one mesh per refinement step)
+| Case | Refinements |
+|---|---|
+| `m1_shelf150` | 1500 m patch on the 150 m contour polygon, rate 1e-5 |
+| `m2_domain2500` | 2500 m patch on the domain polygon (2500 m everywhere) |
+| `m3_shelf150_domain2500` | both of the above (patches combine with `min`) |
+| `m4_plus_coarse` | m3 + "no finer than 3500 m" constraints in the center, south and north regions (rate 1e-5) |
+
+```bash
+./submit_cases.sh                       # all four, METHOD=fast (~30 min each)
+METHOD=exact ./submit_cases.sh m4_plus_coarse
+sbatch --export=ALL,CASE=m1_shelf150,METHOD=fast slurm_ak_mesh.sh   # a single case
+```
+Outputs: `results/<case>_<method>_<jobid>/AK_LARGEDOMAIN_<case>.{2dm,gr3}`.
+
+Rate units (1/m): patch `size(d) = T*(1 + r*d)`; region `min` constraint
+`bound(d) = V*(1 - r*d)`. Tune `RATE` in `build_ak_mesh.py`.
+
 ## How the dateline is handled
 OCSMesh's `utils.estimate_bounds_utm` returns `None` for any longitude
 > 180, which makes size-function distances run in degrees and breaks CRS

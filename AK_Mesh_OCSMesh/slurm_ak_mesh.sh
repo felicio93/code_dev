@@ -1,8 +1,10 @@
 #!/bin/bash
 # =============================================================================
 # Alaska large-domain mesh (0-360 lon, crosses the dateline)  |  NOAA Gaea (c6)
-# Submit with:  sbatch slurm_ak_mesh.sh
-# Override with e.g.:  sbatch --export=ALL,METHOD=fast slurm_ak_mesh.sh
+# Submit one mesh case (see CASES in build_ak_mesh.py):
+#   sbatch --export=ALL,CASE=m1_shelf150 slurm_ak_mesh.sh
+# or all four at once:  ./submit_cases.sh
+# Other overrides: METHOD=fast|exact  ENGINE=gmsh|triangle  NPROCS=n
 # =============================================================================
 #SBATCH --job-name=ak_mesh
 #SBATCH --account=nos-surge
@@ -23,8 +25,9 @@ set -euo pipefail
 
 # ── Configuration (edit or override via --export) ────────────────────────────
 DATA_DIR="${DATA_DIR:-/gpfs/f6/nos-surge/scratch/Felicio.Cassalho/OCSMesh_MPI/AK_LargeDomain_Mesh/2026_10_15}"
-OUT_DIR="${OUT_DIR:-/gpfs/f6/nos-surge/scratch/Felicio.Cassalho/OCSMesh_MPI/AK_LargeDomain_Mesh/results/${SLURM_JOB_ID:-manual}}"
+CASE="${CASE:?Set CASE, e.g. sbatch --export=ALL,CASE=m1_shelf150 slurm_ak_mesh.sh}"
 METHOD="${METHOD:-exact}"          # exact | fast
+OUT_DIR="${OUT_DIR:-/gpfs/f6/nos-surge/scratch/Felicio.Cassalho/OCSMesh_MPI/AK_LargeDomain_Mesh/results/${CASE}_${METHOD}_${SLURM_JOB_ID:-manual}}"
 ENGINE="${ENGINE:-gmsh}"           # gmsh | triangle
 NPROCS="${NPROCS:-${SLURM_CPUS_PER_TASK:-1}}"
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "$0")" && pwd)}"
@@ -48,6 +51,7 @@ cd "${SCRIPT_DIR}"
 
 echo "============================================================="
 echo "  Alaska 0-360 mesh   method=${METHOD}  engine=${ENGINE}  nprocs=${NPROCS}"
+echo "  Case   : ${CASE}"
 echo "  Job    : ${SLURM_JOB_ID:-n/a}"
 echo "  Node   : ${SLURM_NODELIST:-n/a}"
 echo "  Data   : ${DATA_DIR}"
@@ -68,6 +72,7 @@ srun --ntasks=1 --cpus-per-task="${SLURM_CPUS_PER_TASK:-1}" --cpu-bind=cores \
         --out-dir  "${OUT_DIR}" \
         --method   "${METHOD}" \
         --engine   "${ENGINE}" \
-        --nprocs   "${NPROCS}"
+        --nprocs   "${NPROCS}" \
+        --case     "${CASE}"
 
 echo "=== DONE $(date) ==="

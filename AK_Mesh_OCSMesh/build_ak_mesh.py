@@ -47,8 +47,6 @@ _logger = logging.getLogger("AK_Mesh")
 # --------------------------------------------------------------------------
 DOMAIN_SHP = "AKdomain_20261014_360.shp"
 SHELF_150_SHP = "150m_contour_360.shp"
-SHELF_200_SHP = "200m_contour_360.shp"
-BERING_SHP = "beringsea_360.shp"
 COARSE_CENTER_SHP = "coarse_ocean_center_360.shp"
 COARSE_SOUTH_SHP = "coarse_ocean_south_360.shp"
 COARSE_NORTH_SHP = "coarse_ocean_north_360.shp"
@@ -59,16 +57,41 @@ DEM_GEBCO = "GEBCO_2026_360.tif"
 # --------------------------------------------------------------------------
 HMIN = 1500.0
 HMAX = 3500.0
-SHELF_TARGET = 1500.0
-SHELF_EXPANSION = 0.0001
-# (shape key, value, rate or None)
-REGION_CONSTRAINTS = [
-    ("shelf_200", 2500.0, None),
-    ("bering", 2500.0, 0.001),
-    ("center", 3500.0, 0.005),
-    ("south", 3500.0, 0.0025),
-    ("north", 3500.0, 0.0025),
-]
+
+# Rate semantics in OCSMesh (units: 1/m, distance measured in meters):
+#   add_patch(expansion_rate=r, target_size=T):  size(d) = T * (1 + r*d)
+#       -> gradient dh/dd = r*T ; reaches H after d = (H/T - 1) / r
+#   add_region_constraint(value=V, rate=r, 'min'): bound(d) = V * (1 - r*d)
+#       -> the "no finer than V" bound fades out with distance d from the region
+RATE = 1.0e-5           # used by every refinement (patch and region)
+#   patch  1500 m -> 2500 m over ~67 km   (1.5 % gradient)
+#   region 3500 m -> 2500 m over ~29 km
+
+# Building blocks.
+#   patch  -> hfun.add_patch(shape, target_size, expansion_rate)
+#   region -> hfun.add_region_constraint(value, shape, rate, value_type='min')
+REFINEMENTS = {
+    "shelf_150":   dict(kind="patch", shp=SHELF_150_SHP,
+                        target_size=1500.0, expansion_rate=RATE),
+    # Whole-domain patch: 2500 m everywhere; nothing outside to expand into.
+    "domain_2500": dict(kind="patch", shp=DOMAIN_SHP,
+                        target_size=2500.0, expansion_rate=None),
+    "coarse_center": dict(kind="region", shp=COARSE_CENTER_SHP,
+                          value=3500.0, rate=RATE),
+    "coarse_south":  dict(kind="region", shp=COARSE_SOUTH_SHP,
+                          value=3500.0, rate=RATE),
+    "coarse_north":  dict(kind="region", shp=COARSE_NORTH_SHP,
+                          value=3500.0, rate=RATE),
+}
+
+# One mesh per case, built up step by step.
+CASES = {
+    "m1_shelf150": ["shelf_150"],
+    "m2_domain2500": ["domain_2500"],
+    "m3_shelf150_domain2500": ["shelf_150", "domain_2500"],
+    "m4_plus_coarse": ["shelf_150", "domain_2500",
+                       "coarse_center", "coarse_south", "coarse_north"],
+}
 
 METRIC_CRS = CRS.from_epsg(3338)   # Alaska Albers (meters)
 OUTPUT_CRS = "EPSG:4326"
@@ -155,7 +178,11 @@ def main() -> None:
     ap.add_argument("--data-dir", type=Path, required=True,
                     help="Directory with the *_360 shapefiles and GEBCO tif")
     ap.add_argument("--out-dir", type=Path, required=True)
-    ap.add_argument("--name", default="AK_LARGEDOMAIN")
+    ap.add_argument("--case", choices=list(CASES), required=True,
+                    help="Which mesh to build: "
+                         + "; ".join(f"{k}={'+'.join(v)}" for k, v in CASES.items()))
+    ap.add_argument("--name", default=None,
+                    help="Output basename (default: AK_LARGEDOMAIN_<case>)")
     ap.add_argument("--nprocs", type=int, default=1,
                     help="Worker processes for size-function evaluation")
     ap.add_argument("--method", choices=["exact", "fast"], default="exact")
@@ -163,6 +190,11 @@ def main() -> None:
     ap.add_argument("--hmin", type=float, default=HMIN)
     ap.add_argument("--hmax", type=float, default=HMAX)
     args = ap.parse_args()
+
+    refine = CASES[args.case]
+    if args.name is None:
+        args.name = f"AK_LARGEDOMAIN_{args.case}"
+    _logger.info("Case %s -> refinements: %s", args.case, refine)
 
     data, out = args.data_dir.resolve(), args.out_dir.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -175,14 +207,7 @@ def main() -> None:
     _logger.info("Step 1: loading shapefiles from %s", data)
     t = time.time()
     domain, domain_crs = load_shape(data / DOMAIN_SHP)
-    shapes = {
-        "shelf_150": load_shape(data / SHELF_150_SHP)[0],
-        "shelf_200": load_shape(data / SHELF_200_SHP)[0],
-        "bering": load_shape(data / BERING_SHP)[0],
-        "center": load_shape(data / COARSE_CENTER_SHP)[0],
-        "south": load_shape(data / COARSE_SOUTH_SHP)[0],
-        "north": load_shape(data / COARSE_NORTH_SHP)[0],
-    }
+    shapes = {k: load_shape(data / REFINEMENTS[k]["shp"])[0] for k in refine}
     check_0_360("domain", domain)
     for k, v in shapes.items():
         check_0_360(k, v)
@@ -220,17 +245,21 @@ def main() -> None:
     if args.nprocs > 1:
         hfun.execution_mode = "parallel"
 
-    hfun.add_patch(
-        shape=shapes["shelf_150"],
-        expansion_rate=SHELF_EXPANSION,
-        target_size=SHELF_TARGET,
-    )
-    for key, value, rate in REGION_CONSTRAINTS:
-        kwargs = dict(value=value, shape=shapes[key], crs=domain_crs,
-                      value_type="min")
-        if rate is not None:
-            kwargs["rate"] = rate
-        hfun.add_region_constraint(**kwargs)
+    for key in refine:
+        cfg = REFINEMENTS[key]
+        _logger.info("  Adding refinement: %s (%s)", key, cfg["kind"])
+        if cfg["kind"] == "patch":
+            hfun.add_patch(
+                shape=shapes[key],
+                expansion_rate=cfg["expansion_rate"],
+                target_size=cfg["target_size"],
+            )
+        else:
+            kwargs = dict(value=cfg["value"], shape=shapes[key],
+                          crs=domain_crs, value_type="min")
+            if cfg["rate"] is not None:
+                kwargs["rate"] = cfg["rate"]
+            hfun.add_region_constraint(**kwargs)
     timings["hfun_setup_s"] = time.time() - t
 
     # 4. Mesh -----------------------------------------------------------
@@ -263,6 +292,7 @@ def main() -> None:
     timings["total_s"] = time.time() - t_start
     with open(out / f"{args.name}_summary.json", "w", encoding="utf-8") as fh:
         json.dump({"args": {k: str(v) for k, v in vars(args).items()},
+                   "case": args.case, "refinements": refine,
                    "timings": timings, "mesh": summary}, fh, indent=2)
     _logger.info("Done in %.1f min. Output: %s", timings["total_s"] / 60, out)
 
