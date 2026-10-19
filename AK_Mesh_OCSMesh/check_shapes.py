@@ -41,6 +41,7 @@ SHAPES = {
     "domain": B.DOMAIN_SHP,
     "shelf_150": B.SHELF_150_SHP,
     "below_150": B.BELOW_150_SHP,
+    "below_200": B.BELOW_200_SHP,
     "bering": B.BERING_SHP,
     "center": B.COARSE_CENTER_SHP,
     "south": B.COARSE_SOUTH_SHP,

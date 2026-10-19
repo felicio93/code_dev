@@ -57,6 +57,7 @@ _logger = logging.getLogger("AK_Mesh")
 DOMAIN_SHP = "AKdomain_20261014.shp"
 SHELF_150_SHP = "150m_contour.shp"
 BELOW_150_SHP = "below_150m_contour.shp"   # falls back to any below_150*.shp
+BELOW_200_SHP = "below_200m_contour.shp"   # falls back to any below_200*.shp
 BERING_SHP = "beringsea.shp"
 COARSE_CENTER_SHP = "coarse_ocean_center.shp"
 COARSE_SOUTH_SHP = "coarse_ocean_south.shp"
@@ -79,10 +80,10 @@ HMAX = 3500.0
 #       -> the "no coarser than V" bound relaxes with distance d from the region
 RATE = 1.0e-5           # coarse_* region constraints
 SHELF_RATE = 6.7e-6     # 150 m contour shelf patch
-BELOW150_RATE = 5.0e-5  # below_150 region constraint (short transition)
+BELOW200_RATE = 5.0e-5  # below_200 region constraint (short transition)
 BERING_RATE = None      # Bering Sea patch: no expansion outside the polygon
 #   shelf     1500 m -> 2500 m over ~100 km ; -> 3500 m over ~200 km
-#   below_150 2500 m -> 1500 m over ~8 km
+#   below_200 2500 m -> 1500 m over ~8 km
 #   coarse_*  3500 m -> 2500 m over ~29 km
 
 # Building blocks.
@@ -90,20 +91,19 @@ BERING_RATE = None      # Bering Sea patch: no expansion outside the polygon
 #   region -> hfun.add_region_constraint(value, shape, rate, value_type='min')
 # Region constraints are "no finer than value" (min) constraints. They only
 # ever raise sizes, so where regions overlap the LARGER value wins; the
-# coarse_* (3500 m) regions therefore take priority over below_150 (2500 m).
+# coarse_* (3500 m) regions therefore take priority over below_200 (2500 m).
 # Within a case they are also added in the order listed in CASES.
 REFINEMENTS = {
     "shelf_150":   dict(kind="patch", shp=SHELF_150_SHP,
                         target_size=1500.0, expansion_rate=SHELF_RATE),
-    # Below-150 polygon: a 2500 m patch (no rate; pulls coarser areas down to
-    # 2500 m inside) plus a "no finer than 2500 m" constraint (below), so the
-    # polygon ends up at 2500 m.
+    # Below-150 polygon: 2500 m patch, no rate (pulls coarser areas down to
+    # 2500 m inside; sharp edge outside).
     "below_150_patch": dict(kind="patch", shp=BELOW_150_SHP,
                             target_size=2500.0, expansion_rate=None),
-    # "No finer than 2500 m" in the below-150 polygon; the bound fades out
+    # "No finer than 2500 m" in the below-200 polygon; the bound fades out
     # quickly (2500 -> 1500 m over ~8 km) outside the polygon.
-    "below_150":   dict(kind="region", shp=BELOW_150_SHP,
-                        value=2500.0, rate=BELOW150_RATE),
+    "below_200":   dict(kind="region", shp=BELOW_200_SHP,
+                        value=2500.0, rate=BELOW200_RATE),
     # Bering Sea patch: 2500 m inside, no expansion rate outside. NOTE: patches
     # combine with min(), so where this polygon overlaps the 1500 m shelf patch
     # the finer 1500 m value is kept.
@@ -120,9 +120,9 @@ REFINEMENTS = {
 # One mesh per case, built up step by step.
 CASES = {
     "m1_shelf150": ["shelf_150"],
-    "m2_plus_below150": ["shelf_150", "below_150_patch", "below_150"],
-    "m3_plus_bering": ["shelf_150", "below_150_patch", "below_150", "bering_2500"],
-    "m4_plus_coarse": ["shelf_150", "below_150_patch", "below_150", "bering_2500",
+    "m2_plus_below150": ["shelf_150", "below_150_patch"],
+    "m3_plus_bering": ["shelf_150", "below_150_patch", "below_200", "bering_2500"],
+    "m4_plus_coarse": ["shelf_150", "below_150_patch", "below_200", "bering_2500",
                        "coarse_center", "coarse_south", "coarse_north"],
 }
 
@@ -165,8 +165,8 @@ def resolve_shp(data: Path, name: str) -> Path:
     p = data / name
     if p.is_file():
         return p
-    if name.startswith("below_150"):
-        hits = sorted(data.glob("below_150*.shp"))
+    if name.startswith(("below_150", "below_200")):
+        hits = sorted(data.glob(name[:9] + "*.shp"))
         if len(hits) == 1:
             _logger.info("  %s not found, using %s", name, hits[0].name)
             return hits[0]

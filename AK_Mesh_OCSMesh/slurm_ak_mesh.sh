@@ -64,7 +64,9 @@ for f in AKdomain_20261014.shp 150m_contour.shp beringsea.shp \
          coarse_ocean_center.shp coarse_ocean_south.shp coarse_ocean_north.shp; do
     [ -f "${DATA_DIR}/${f}" ] || { echo "ERROR: missing ${DATA_DIR}/${f}"; exit 1; }
 done
-ls "${DATA_DIR}"/below_150*.shp >/dev/null 2>&1 || { echo "ERROR: no below_150*.shp in ${DATA_DIR}"; exit 1; }
+for b in below_150 below_200; do
+    ls "${DATA_DIR}"/${b}*.shp >/dev/null 2>&1 || { echo "ERROR: no ${b}*.shp in ${DATA_DIR}"; exit 1; }
+done
 [ -f "${DATA_DIR}/GEBCO_2026.tif" ] || [ -f "${DATA_DIR}/GEBCO_2026_360.tif" ] || { echo "ERROR: no GEBCO raster in ${DATA_DIR}"; exit 1; }
 
 srun --ntasks=1 --cpus-per-task="${SLURM_CPUS_PER_TASK:-1}" --cpu-bind=cores \

@@ -14,8 +14,8 @@ dateline. Output longitudes are **0-360** (0 = Greenwich, 180 = Bering Sea,
 In `DATA_DIR` (default
 `/gpfs/f6/nos-surge/scratch/Felicio.Cassalho/OCSMesh_MPI/AK_LargeDomain_Mesh/2026_10_15`),
 the **original** files, no manual shifting needed:
-`AKdomain_20261014.shp`, `150m_contour.shp`, `below_150m_contour.shp`
-(any single `below_150*.shp` is accepted), `beringsea.shp`,
+`AKdomain_20261014.shp`, `150m_contour.shp`, `below_150m_contour.shp`, `below_200m_contour.shp`
+(any single `below_150*.shp` / `below_200*.shp` is accepted), `beringsea.shp`,
 `coarse_ocean_{center,south,north}.shp`, `GEBCO_2026.tif`.
 
 `build_ak_mesh.py` shifts them to 0-360 on every run: shapefile vertices with
@@ -42,11 +42,11 @@ Outputs go to `OUT_DIR` (default `.../AK_LargeDomain_Mesh/results/<jobid>/`):
 | Case | Refinements |
 |---|---|
 | `m1_shelf150` | 1500 m patch on the 150 m contour polygon, rate 6.7e-6 (1500 -> 2500 m over ~100 km) |
-| `m2_plus_below150` | m1 + a 2500 m patch (no rate) **and** a "no finer than 2500 m" constraint (rate 5e-5, 2500 -> 1500 m over ~8 km) on the `below_150` polygon |
-| `m3_plus_bering` | m2 + 2500 m **patch** on the Bering Sea polygon, no rate (patches take the min, so it cannot coarsen the 1500 m shelf patch) |
-| `m4_plus_coarse` | m3 + "no finer than 3500 m" in the center, south and north regions (these win over `below_150` where they overlap) |
+| `m2_plus_below150` | m1 + 2500 m patch (no rate) on the `below_150` polygon |
+| `m3_plus_bering` | m2 + "no finer than 2500 m" constraint on the `below_200` polygon (rate 5e-5, 2500 -> 1500 m over ~8 km) + 2500 m **patch** on the Bering Sea polygon, no rate (patches take the min, so it cannot coarsen the 1500 m shelf patch) |
+| `m4_plus_coarse` | m3 + "no finer than 3500 m" in the center, south and north regions (these win over `below_200` where they overlap) |
 
-Rates: 6.7e-6 shelf patch, 5e-5 `below_150`, 1e-5 `coarse_*`, none for the Bering patch.
+Rates: 6.7e-6 shelf patch, 5e-5 `below_200`, 1e-5 `coarse_*`, none for the Bering patch.
 
 ```bash
 ./submit_cases.sh                       # all four, METHOD=fast (~30 min each)
@@ -56,7 +56,7 @@ sbatch --export=ALL,CASE=m1_shelf150,METHOD=fast slurm_ak_mesh.sh   # a single c
 Outputs: `results/<case>_<method>_<jobid>/AK_LARGEDOMAIN_<case>.{2dm,gr3}`.
 
 Rate units (1/m): patch `size(d) = T*(1 + r*d)`; region `min` constraint
-`bound(d) = V*(1 - r*d)`. Tune `SHELF_RATE` / `BELOW150_RATE` / `RATE` / `BERING_RATE` in `build_ak_mesh.py`.
+`bound(d) = V*(1 - r*d)`. Tune `SHELF_RATE` / `BELOW200_RATE` / `RATE` / `BERING_RATE` in `build_ak_mesh.py`.
 
 ## OCSMesh library patches (apply to the OCSMesh `dev` checkout on Gaea)
 ```bash

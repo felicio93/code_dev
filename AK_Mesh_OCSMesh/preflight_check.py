@@ -19,7 +19,7 @@ ORIG = Path(sys.argv[2]) if len(sys.argv) > 2 else DATA / "GEBCO_2026.tif"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_ak_mesh as B  # noqa: E402
 SHAPES = []
-for _n in (B.DOMAIN_SHP, B.SHELF_150_SHP, B.BELOW_150_SHP, B.BERING_SHP,
+for _n in (B.DOMAIN_SHP, B.SHELF_150_SHP, B.BELOW_150_SHP, B.BELOW_200_SHP, B.BERING_SHP,
            B.COARSE_CENTER_SHP, B.COARSE_SOUTH_SHP, B.COARSE_NORTH_SHP):
     try:
         SHAPES.append(B.resolve_shp(DATA, _n).stem)
