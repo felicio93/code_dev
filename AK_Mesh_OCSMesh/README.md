@@ -42,9 +42,9 @@ Outputs go to `OUT_DIR` (default `.../AK_LargeDomain_Mesh/results/<jobid>/`):
 | Case | Refinements |
 |---|---|
 | `m1_shelf150` | 1500 m patch on the 150 m contour polygon, rate 1e-6 |
-| `m2_plus_below150` | m1 + "no finer than 2500 m" constraint in the `below_150` polygon |
+| `m2_plus_below150` | m1 + "no coarser than 2500 m" (max) constraint in the `below_150` polygon |
 | `m3_plus_bering` | m2 + 2500 m **patch** on the Bering Sea polygon, rate 5e-6 (patches take the min, so it cannot coarsen the 1500 m shelf patch) |
-| `m4_plus_coarse` | m3 + "no finer than 3500 m" in the center, south and north regions (these win over `below_150` where they overlap) |
+| `m4_plus_coarse` | m3 + "no finer than 3500 m" in the center, south and north regions (added after `below_150`, so they win where they overlap) |
 
 Rates: 1e-6 for the shelf patch, 1e-5 for all constraints, 5e-6 for the Bering patch.
 
