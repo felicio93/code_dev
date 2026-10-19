@@ -41,12 +41,12 @@ Outputs go to `OUT_DIR` (default `.../AK_LargeDomain_Mesh/results/<jobid>/`):
 ## Mesh cases (one mesh per refinement step)
 | Case | Refinements |
 |---|---|
-| `m1_shelf150` | 1500 m patch on the 150 m contour polygon, rate 1e-6 |
-| `m2_plus_below150` | m1 + "no coarser than 2500 m" (max) constraint in the `below_150` polygon |
-| `m3_plus_bering` | m2 + 2500 m **patch** on the Bering Sea polygon, rate 5e-6 (patches take the min, so it cannot coarsen the 1500 m shelf patch) |
-| `m4_plus_coarse` | m3 + "no finer than 3500 m" in the center, south and north regions (added after `below_150`, so they win where they overlap) |
+| `m1_shelf150` | 1500 m patch on the 150 m contour polygon, rate 6.7e-6 (1500 -> 2500 m over ~100 km) |
+| `m2_plus_below150` | m1 + "no finer than 2500 m" constraint in the `below_150` polygon, rate 5e-5 (2500 -> 1500 m over ~8 km) |
+| `m3_plus_bering` | m2 + 2500 m **patch** on the Bering Sea polygon, no rate (patches take the min, so it cannot coarsen the 1500 m shelf patch) |
+| `m4_plus_coarse` | m3 + "no finer than 3500 m" in the center, south and north regions (these win over `below_150` where they overlap) |
 
-Rates: 1e-6 for the shelf patch, 1e-5 for all constraints, 5e-6 for the Bering patch.
+Rates: 6.7e-6 shelf patch, 5e-5 `below_150`, 1e-5 `coarse_*`, none for the Bering patch.
 
 ```bash
 ./submit_cases.sh                       # all four, METHOD=fast (~30 min each)
@@ -56,7 +56,7 @@ sbatch --export=ALL,CASE=m1_shelf150,METHOD=fast slurm_ak_mesh.sh   # a single c
 Outputs: `results/<case>_<method>_<jobid>/AK_LARGEDOMAIN_<case>.{2dm,gr3}`.
 
 Rate units (1/m): patch `size(d) = T*(1 + r*d)`; region `min` constraint
-`bound(d) = V*(1 - r*d)`. Tune `SHELF_RATE` (1e-6) / `RATE` (1e-5) / `BERING_RATE` (5e-6) in `build_ak_mesh.py`.
+`bound(d) = V*(1 - r*d)`. Tune `SHELF_RATE` / `BELOW150_RATE` / `RATE` / `BERING_RATE` in `build_ak_mesh.py`.
 
 ## OCSMesh library patches (apply to the OCSMesh `dev` checkout on Gaea)
 ```bash

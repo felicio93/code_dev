@@ -77,32 +77,32 @@ HMAX = 3500.0
 #       -> the "no finer than V" bound fades out with distance d from the region
 #   add_region_constraint(value=V, rate=r, 'max'): bound(d) = V * (1 + r*d)
 #       -> the "no coarser than V" bound relaxes with distance d from the region
-RATE = 1.0e-5           # all region constraints
-SHELF_RATE = 1.0e-6     # 150 m contour shelf patch
-BERING_RATE = 5.0e-6    # Bering Sea patch
-#   shelf  1500 m -> 2500 m over ~670 km  (0.15 % gradient)
-#   'max' region 2500 m -> 3500 m over ~40 km ; 'min' region 3500 m -> 2500 m over ~29 km
+RATE = 1.0e-5           # coarse_* region constraints
+SHELF_RATE = 6.7e-6     # 150 m contour shelf patch
+BELOW150_RATE = 5.0e-5  # below_150 region constraint (short transition)
+BERING_RATE = None      # Bering Sea patch: no expansion outside the polygon
+#   shelf     1500 m -> 2500 m over ~100 km ; -> 3500 m over ~200 km
+#   below_150 2500 m -> 1500 m over ~8 km
+#   coarse_*  3500 m -> 2500 m over ~29 km
 
 # Building blocks.
 #   patch  -> hfun.add_patch(shape, target_size, expansion_rate)
 #   region -> hfun.add_region_constraint(value, shape, rate, value_type='min')
-# Region constraints are either "no finer than value" (min, only raises sizes)
-# or "no coarser than value" (max, only lowers sizes). They are applied in the
-# order listed in CASES, so the LAST one wins where they overlap: the coarse_*
-# min constraints (3500 m) come after the below_150 max constraint (2500 m) and
-# therefore take priority over it.
+# Region constraints are "no finer than value" (min) constraints. They only
+# ever raise sizes, so where regions overlap the LARGER value wins; the
+# coarse_* (3500 m) regions therefore take priority over below_150 (2500 m).
+# Within a case they are also added in the order listed in CASES.
 REFINEMENTS = {
     "shelf_150":   dict(kind="patch", shp=SHELF_150_SHP,
                         target_size=1500.0, expansion_rate=SHELF_RATE),
     # Keeps the shelf-scale resolution out of the deep ocean (below 150 m contour).
-    # "no coarser than 2500 m" (max constraint): sizes above 2500 m inside the
-    # polygon are clamped to 2500 m, and the clamp relaxes outward as
-    # 2500*(1 + r*d) (2500 -> 3500 m over ~40 km).
+    # "No finer than 2500 m" in the below-150 polygon; the bound fades out
+    # quickly (2500 -> 1500 m over ~8 km) outside the polygon.
     "below_150":   dict(kind="region", shp=BELOW_150_SHP,
-                        value=2500.0, rate=RATE, value_type="max"),
-    # Bering Sea patch: 2500 m inside, growing slowly outward (2500 -> 3500 m
-    # over ~80 km). NOTE: patches combine with min(), so where this polygon
-    # overlaps the 1500 m shelf patch the finer 1500 m value is kept.
+                        value=2500.0, rate=BELOW150_RATE),
+    # Bering Sea patch: 2500 m inside, no expansion rate outside. NOTE: patches
+    # combine with min(), so where this polygon overlaps the 1500 m shelf patch
+    # the finer 1500 m value is kept.
     "bering_2500": dict(kind="patch", shp=BERING_SHP,
                         target_size=2500.0, expansion_rate=BERING_RATE),
     "coarse_center": dict(kind="region", shp=COARSE_CENTER_SHP,
