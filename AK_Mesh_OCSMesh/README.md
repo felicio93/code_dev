@@ -41,12 +41,12 @@ Outputs go to `OUT_DIR` (default `.../AK_LargeDomain_Mesh/results/<jobid>/`):
 ## Mesh cases (one mesh per refinement step)
 | Case | Refinements |
 |---|---|
-| `m1_shelf150` | 1500 m patch on the 150 m contour polygon, rate 6.7e-6 (1500 -> 2500 m over ~100 km) |
+| `m1_shelf150` | 1500 m patch on the 150 m contour polygon, rate 4.44e-5 (1500 -> 2500 m over ~15 km) |
 | `m2_plus_below150` | m1 + 2500 m patch (no rate) on the `below_150` polygon |
 | `m3_plus_bering` | m2 + "no finer than 2500 m" constraint on the `below_200` polygon (rate 5e-5, 2500 -> 1500 m over ~8 km) + 2500 m **patch** on the Bering Sea polygon, no rate (patches take the min, so it cannot coarsen the 1500 m shelf patch) |
 | `m4_plus_coarse` | m3 + "no finer than 3500 m" in the center, south and north regions (these win over `below_200` where they overlap) |
 
-Rates: 6.7e-6 shelf patch, 5e-5 `below_200`, 1e-5 `coarse_*`, none for the Bering patch.
+Rates: 4.44e-5 shelf patch, 5e-5 `below_200`, 1e-5 `coarse_*`, none for the Bering patch.
 
 ```bash
 ./submit_cases.sh                       # all four, METHOD=fast (~30 min each)
