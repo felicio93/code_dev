@@ -95,7 +95,11 @@ BERING_RATE = None      # Bering Sea patch: no expansion outside the polygon
 REFINEMENTS = {
     "shelf_150":   dict(kind="patch", shp=SHELF_150_SHP,
                         target_size=1500.0, expansion_rate=SHELF_RATE),
-    # Keeps the shelf-scale resolution out of the deep ocean (below 150 m contour).
+    # Below-150 polygon: a 2500 m patch (no rate; pulls coarser areas down to
+    # 2500 m inside) plus a "no finer than 2500 m" constraint (below), so the
+    # polygon ends up at 2500 m.
+    "below_150_patch": dict(kind="patch", shp=BELOW_150_SHP,
+                            target_size=2500.0, expansion_rate=None),
     # "No finer than 2500 m" in the below-150 polygon; the bound fades out
     # quickly (2500 -> 1500 m over ~8 km) outside the polygon.
     "below_150":   dict(kind="region", shp=BELOW_150_SHP,
@@ -116,9 +120,9 @@ REFINEMENTS = {
 # One mesh per case, built up step by step.
 CASES = {
     "m1_shelf150": ["shelf_150"],
-    "m2_plus_below150": ["shelf_150", "below_150"],
-    "m3_plus_bering": ["shelf_150", "below_150", "bering_2500"],
-    "m4_plus_coarse": ["shelf_150", "below_150", "bering_2500",
+    "m2_plus_below150": ["shelf_150", "below_150_patch", "below_150"],
+    "m3_plus_bering": ["shelf_150", "below_150_patch", "below_150", "bering_2500"],
+    "m4_plus_coarse": ["shelf_150", "below_150_patch", "below_150", "bering_2500",
                        "coarse_center", "coarse_south", "coarse_north"],
 }
 
