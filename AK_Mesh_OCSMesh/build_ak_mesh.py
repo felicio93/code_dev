@@ -79,10 +79,10 @@ HMAX = 3500.0
 #   add_region_constraint(value=V, rate=r, 'max'): bound(d) = V * (1 + r*d)
 #       -> the "no coarser than V" bound relaxes with distance d from the region
 RATE = 1.0e-5           # coarse_* region constraints
-SHELF_RATE = 4.44e-5    # 150 m contour shelf patch
+SHELF_RATE = 1.48e-5    # 150 m contour shelf patch
 BELOW200_RATE = 5.0e-5  # below_200 region constraint (short transition)
 BERING_RATE = None      # Bering Sea patch: no expansion outside the polygon
-#   shelf     1500 m -> 2500 m over ~15 km ; -> 3500 m over ~30 km
+#   shelf     1500 m -> 2500 m over ~45 km ; -> 3500 m over ~90 km
 #   below_200 2500 m -> 1500 m over ~8 km
 #   coarse_*  3500 m -> 2500 m over ~29 km
 
