@@ -69,7 +69,8 @@ DEM_GEBCO = "GEBCO_2026_360.tif"           # derived (rolled) raster
 # Mesh sizing recipe (meters)
 # --------------------------------------------------------------------------
 HMIN = 1500.0
-HMAX = 3500.0
+HMAX = 3500.0           # m1-m4
+HMAX_M5 = 7000.0        # m5: the north region goes to 7000 m
 
 # Rate semantics in OCSMesh (units: 1/m, distance measured in meters):
 #   add_patch(expansion_rate=r, target_size=T):  size(d) = T * (1 + r*d)
@@ -82,9 +83,11 @@ RATE = 1.0e-5           # coarse_* region constraints
 SHELF_RATE = 1.48e-5    # 150 m contour shelf patch
 BELOW200_RATE = 5.0e-5  # below_200 region constraint (short transition)
 BERING_RATE = None      # Bering Sea patch: no expansion outside the polygon
+NORTH_RAMP_RATE = 1.0e-5  # m5: 3500 m cap relaxes into the north region
 #   shelf     1500 m -> 2500 m over ~45 km ; -> 3500 m over ~90 km
 #   below_200 2500 m -> 1500 m over ~8 km
 #   coarse_*  3500 m -> 2500 m over ~29 km
+#   m5 north  3500 m at the north region's edge -> 7000 m ~100 km inside
 
 # Building blocks.
 #   patch  -> hfun.add_patch(shape, target_size, expansion_rate)
@@ -115,6 +118,16 @@ REFINEMENTS = {
                           value=3500.0, rate=RATE),
     "coarse_north":  dict(kind="region", shp=COARSE_NORTH_SHP,
                           value=3500.0, rate=RATE),
+    # m5: "no finer than 7000 m" inside the north region only (no rate, so
+    # nothing changes outside it) ...
+    "north_7000":    dict(kind="region", shp=COARSE_NORTH_SHP,
+                          value=7000.0, rate=None),
+    # ... and "no coarser than 3500 m" everywhere else (the m1-m4 hmax),
+    # relaxing with distance into the north region: 3500 m at its edge,
+    # 7000 m ~100 km inside. Must come after north_7000 (last one wins).
+    "cap_3500_outside_north": dict(kind="region", shp=DOMAIN_SHP,
+                                   minus=COARSE_NORTH_SHP, value=3500.0,
+                                   rate=NORTH_RAMP_RATE, value_type="max"),
 }
 
 # One mesh per case, built up step by step.
@@ -124,7 +137,13 @@ CASES = {
     "m3_plus_bering": ["shelf_150", "below_150_patch", "below_200", "bering_2500"],
     "m4_plus_coarse": ["shelf_150", "below_150_patch", "below_200", "bering_2500",
                        "coarse_center", "coarse_south", "coarse_north"],
+    # m4 with the north region twice as coarse (7000 m); identical to m4
+    # outside the north region. Runs with hmax=HMAX_M5.
+    "m5_north7000": ["shelf_150", "below_150_patch", "below_200", "bering_2500",
+                     "coarse_center", "coarse_south", "coarse_north",
+                     "north_7000", "cap_3500_outside_north"],
 }
+CASE_HMAX = {"m5_north7000": HMAX_M5}
 
 METRIC_CRS = CRS.from_epsg(3338)   # Alaska Albers (meters)
 OUTPUT_CRS = "EPSG:4326"
@@ -320,10 +339,13 @@ def main() -> None:
     ap.add_argument("--method", choices=["exact", "fast"], default="exact")
     ap.add_argument("--engine", choices=["gmsh", "triangle"], default="gmsh")
     ap.add_argument("--hmin", type=float, default=HMIN)
-    ap.add_argument("--hmax", type=float, default=HMAX)
+    ap.add_argument("--hmax", type=float, default=None,
+                    help=f"default {HMAX} ({HMAX_M5} for m5_north7000)")
     args = ap.parse_args()
 
     refine = CASES[args.case]
+    if args.hmax is None:
+        args.hmax = CASE_HMAX.get(args.case, HMAX)
     if args.name is None:
         args.name = f"AK_LARGEDOMAIN_{args.case}"
     _logger.info("Case %s -> refinements: %s", args.case, refine)
@@ -339,8 +361,12 @@ def main() -> None:
     _logger.info("Step 1: loading shapefiles from %s", data)
     t = time.time()
     domain, domain_crs = load_shape(resolve_shp(data, DOMAIN_SHP))
-    shapes = {k: load_shape(resolve_shp(data, REFINEMENTS[k]["shp"]))[0]
-              for k in refine}
+    shapes = {}
+    for k in refine:
+        shapes[k] = load_shape(resolve_shp(data, REFINEMENTS[k]["shp"]))[0]
+        if "minus" in REFINEMENTS[k]:
+            minus = load_shape(resolve_shp(data, REFINEMENTS[k]["minus"]))[0]
+            shapes[k] = shapely.make_valid(shapes[k].difference(minus))
     check_0_360("domain", domain)
     for k, v in shapes.items():
         check_0_360(k, v)
