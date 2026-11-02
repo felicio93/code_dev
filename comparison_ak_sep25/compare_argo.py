@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Argo mean bias and RMSE against depth, M21 and M26 on the same axes, for
+Argo mean bias and RMSE against depth, M21, M26 and M25 on the same axes, for
 temperature and salinity. Same method as the workflow's argo_profiles figures
 (profiles interpolated to 5 m levels), but scored only on the profiles and
-levels that both runs have, so neither run is judged on extra data.
+levels that all runs have, so no run is judged on extra data.
 
     python compare_argo.py
 
@@ -20,7 +20,7 @@ from workflow.models.schism.postprocess import argo_plots as ap
 
 from common import RUN_COLORS, RUN_LABELS, load_run_config, output_dir
 
-RUNS = ["21", "26"]
+RUNS = ["21", "26", "25"]
 VARIABLES = ["temperature", "salinity"]
 STEP = 5.0      # m, as plot_argo_profiles
 
@@ -46,7 +46,7 @@ def load_errors(run, var, common_depth, max_depth):
 
 
 def common_errors(var, common_depth, max_depth):
-    """Errors of both runs on their shared profiles and levels."""
+    """Errors of all runs on their shared profiles and levels."""
     loaded = {r: load_errors(r, var, common_depth, max_depth) for r in RUNS}
     shared = None
     for times, _ in loaded.values():
@@ -57,11 +57,11 @@ def common_errors(var, common_depth, max_depth):
     for run, (times, err) in loaded.items():
         errors[run] = err[np.isin(times, shared)][
             np.argsort(times[np.isin(times, shared)])]
-    both = ~np.isnan(errors[RUNS[0]]) & ~np.isnan(errors[RUNS[1]])
+    shared_levels = np.all([~np.isnan(errors[r]) for r in RUNS], axis=0)
     for run in RUNS:
-        errors[run] = np.where(both, errors[run], np.nan)
+        errors[run] = np.where(shared_levels, errors[run], np.nan)
     print(f"  {var}: {len(shared)} shared profiles", flush=True)
-    return errors, both
+    return errors, shared_levels
 
 
 def main():
@@ -75,8 +75,8 @@ def main():
     rows = []
     for row, var in enumerate(VARIABLES):
         meta = ap.VAR_META[var]
-        errors, both = common_errors(var, common_depth, max_depth)
-        n_profiles = both.sum(axis=0)
+        errors, shared_levels = common_errors(var, common_depth, max_depth)
+        n_profiles = shared_levels.sum(axis=0)
         ax_bias, ax_rmse = axes[row]
         for run in RUNS:
             bias = np.nanmean(errors[run], axis=0)

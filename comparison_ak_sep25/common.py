@@ -22,15 +22,15 @@ RUN_LABELS = {
     "26": "FC_newmsh_60s_sch",
 }
 
-# Okabe-Ito colorblind-safe colors; unique within each group, obs are black.
+# Unique within each group, obs are black; M21 keeps its color in both groups.
 RUN_COLORS = {
-    "20": "#D55E00",
-    "21": "#0072B2",
-    "22": "#D55E00",
-    "23": "#009E73",
-    "24": "#CC79A7",
-    "25": "#009E73",
-    "26": "#CC79A7",
+    "20": "#FF00FF",
+    "21": "#0000FF",
+    "22": "#E60000",
+    "23": "#00A000",
+    "24": "#FF00FF",
+    "25": "#00A000",
+    "26": "#E60000",
 }
 
 

@@ -17,6 +17,8 @@ VARIABLES = ["temperature", "horizontalVelX", "horizontalVelY",
              "verticalVelocity"]
 PANEL_WIDTH = 1000   # pixels of each of the four panels
 FPS = 4              # as plot_outputs_fps
+LABEL_X = 90         # pixels of the run label from the panel left edge
+LABEL_Y = 75         # pixels of the run label from the panel top edge
 
 
 def frames_of(run, var):
@@ -39,9 +41,9 @@ def composite(paths, labels):
         height = round(img.height * PANEL_WIDTH / img.width)
         img = img.resize((PANEL_WIDTH, height), Image.LANCZOS)
         draw = ImageDraw.Draw(img)
-        draw.rectangle((8, 8, 8 + 18 * len(label), 48), fill="white",
-                       outline="black")
-        draw.text((14, 12), label, fill="black", font=font(28))
+        draw.rectangle((LABEL_X, LABEL_Y, LABEL_X + 18 * len(label),
+                        LABEL_Y + 40), fill="white", outline="black")
+        draw.text((LABEL_X + 6, LABEL_Y + 4), label, fill="black", font=font(28))
         panels.append(img)
     height = max(p.height for p in panels)
     sheet = Image.new("RGB", (2 * PANEL_WIDTH, 2 * height), "white")

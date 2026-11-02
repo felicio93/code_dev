@@ -79,9 +79,9 @@ class Run:
 
 def plot_comparison(obs, models, title, ylabel, out_jpg):
     """The individual figures' layout; the legend sits below the axes because
-    it holds one metrics entry per run."""
+    it holds one metrics entry per run. Observations are the black line."""
     fig, ax = plt.subplots(figsize=(15, 3.8))
-    ax.plot(obs.index, obs.values, label="Observed", color="k", linewidth=1)
+    ax.plot(obs.index, obs.values, color="k", linewidth=1)
     for run, series, label in models:
         ax.plot(series.index, series.values, label=label,
                 color=RUN_COLORS[run], linewidth=1)
@@ -89,7 +89,7 @@ def plot_comparison(obs, models, title, ylabel, out_jpg):
     ax.set_ylabel(ylabel)
     ax.grid(True, linestyle="--", color="gray", linewidth=0.5)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%d-%b"))
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=3,
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.12), ncol=2,
               fontsize=8, frameon=False)
     fig.tight_layout()
     fig.savefig(out_jpg, dpi=150)
