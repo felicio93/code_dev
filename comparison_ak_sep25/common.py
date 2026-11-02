@@ -24,12 +24,12 @@ RUN_LABELS = {
 
 # Unique within each group, obs are black; M21 keeps its color in both groups.
 RUN_COLORS = {
-    "20": "#FF00FF",
-    "21": "#0000FF",
+    "20": "#FF9900",
+    "21": "#0033CC",
     "22": "#E60000",
-    "23": "#00A000",
-    "24": "#FF00FF",
-    "25": "#00A000",
+    "23": "#33DD33",
+    "24": "#FF9900",
+    "25": "#33DD33",
     "26": "#E60000",
 }
 

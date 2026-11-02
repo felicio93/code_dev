@@ -84,7 +84,7 @@ def plot_comparison(obs, models, title, ylabel, out_jpg):
     ax.plot(obs.index, obs.values, color="k", linewidth=1)
     for run, series, label in models:
         ax.plot(series.index, series.values, label=label,
-                color=RUN_COLORS[run], linewidth=1)
+                color=RUN_COLORS[run], linewidth=1.3)
     ax.set_title(title, fontsize=10)
     ax.set_ylabel(ylabel)
     ax.grid(True, linestyle="--", color="gray", linewidth=0.5)
