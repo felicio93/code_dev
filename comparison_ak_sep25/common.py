@@ -13,13 +13,13 @@ GROUPS = {
 }
 
 RUN_LABELS = {
-    "20": "M20 (M11 mesh)",
-    "21": "M21 (SCHISM)",
-    "22": "M22 (UFS SCHISM)",
-    "23": "M23 (SCHISM+WWM)",
-    "24": "M24 (UFS SCHISM+WW3)",
-    "25": "M25 (dt=30 s)",
-    "26": "M26 (FINERNORTH)",
+    "20": "JZ_oldmsh_60s_sch",
+    "21": "JZ_newmsh_60s_sch",
+    "22": "JZ_newmsh_60s_ufsch",
+    "23": "JZ_newmsh_60s_schwwm",
+    "24": "JZ_newmsh_60s_ufschww3",
+    "25": "JZ_newmsh_30s_sch",
+    "26": "FC_newmsh_60s_sch",
 }
 
 # Okabe-Ito colorblind-safe colors; unique within each group, obs are black.
