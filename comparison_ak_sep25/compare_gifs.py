@@ -19,8 +19,8 @@ VARIABLES = ["temperature", "salinity", "elevation", "horizontalVelX",
 HOUR = "T00"         # frame time tag used for each day
 PANEL_WIDTH = 1000   # pixels of each of the four panels
 FPS = 4              # as plot_outputs_fps
-LABEL_RIGHT = 120    # pixels of the run label from the panel right edge
-LABEL_BOTTOM = 70    # pixels of the run label from the panel bottom edge
+LABEL_RIGHT = 105    # pixels of the run label from the panel right edge
+LABEL_BOTTOM = 62    # pixels of the run label from the panel bottom edge
 
 
 def frames_of(run, var):
@@ -43,11 +43,11 @@ def composite(paths, labels):
         height = round(img.height * PANEL_WIDTH / img.width)
         img = img.resize((PANEL_WIDTH, height), Image.LANCZOS)
         draw = ImageDraw.Draw(img)
-        x = img.width - LABEL_RIGHT - 18 * len(label)
-        y = img.height - LABEL_BOTTOM - 40
-        draw.rectangle((x, y, x + 18 * len(label), y + 40), fill="white",
+        x = img.width - LABEL_RIGHT - 14 * len(label)
+        y = img.height - LABEL_BOTTOM - 32
+        draw.rectangle((x, y, x + 14 * len(label), y + 32), fill="white",
                        outline="black")
-        draw.text((x + 6, y + 4), label, fill="black", font=font(28))
+        draw.text((x + 6, y + 4), label, fill="black", font=font(22))
         panels.append(img)
     height = max(p.height for p in panels)
     sheet = Image.new("RGB", (2 * PANEL_WIDTH, 2 * height), "white")
