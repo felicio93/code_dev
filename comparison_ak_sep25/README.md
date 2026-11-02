@@ -6,7 +6,7 @@ Outputs go to `$R/comparison_ak_sep25/` (`ROOT` and groups are in `common.py`).
 | Script | Compares | Output |
 |---|---|---|
 | `compare_stations.py` | all stations: M21-M24 (`models`), M20, M21, M25, M26 (`mesh_dt`); waves for M23, M24 | `stations/<group>/` |
-| `compare_gifs.py` | 2 by 2 SST, X and Y current, vertical velocity for both groups | `gifs/<group>/` |
+| `compare_gifs.py` | 2 by 2 daily SST, SSS, SSH, X and Y current, vertical velocity for both groups | `gifs/<group>/` |
 | `compare_altimetry.py` | M23 and M24 altimetry figures side by side | `altimetry/` |
 | `compare_argo.py` | M21, M26 and M25 Argo bias and RMSE on shared profiles | `argo/` |
 
