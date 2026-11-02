@@ -19,7 +19,7 @@ VARIABLES = ["temperature", "salinity", "elevation", "horizontalVelX",
 HOUR = "T00"         # frame time tag used for each day
 PANEL_WIDTH = 1000   # pixels of each of the four panels
 FPS = 4              # as plot_outputs_fps
-LABEL_RIGHT = 105    # pixels of the run label from the panel right edge
+LABEL_RIGHT = 115    # pixels of the run label from the panel right edge
 LABEL_BOTTOM = 62    # pixels of the run label from the panel bottom edge
 
 
