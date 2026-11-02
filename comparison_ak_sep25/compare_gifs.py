@@ -19,8 +19,8 @@ VARIABLES = ["temperature", "salinity", "elevation", "horizontalVelX",
 HOUR = "T00"         # frame time tag used for each day
 PANEL_WIDTH = 1000   # pixels of each of the four panels
 FPS = 4              # as plot_outputs_fps
-LABEL_RIGHT = 150    # pixels of the run label from the panel right edge
-LABEL_BOTTOM = 85    # pixels of the run label from the panel bottom edge
+LABEL_RIGHT = 120    # pixels of the run label from the panel right edge
+LABEL_BOTTOM = 70    # pixels of the run label from the panel bottom edge
 
 
 def frames_of(run, var):
